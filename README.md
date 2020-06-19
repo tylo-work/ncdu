@@ -4,10 +4,10 @@ ncdu v1.16
 Description
 -----------
 
-  ncdu2 (NCurses Disk Usage) is a curses-based version of
+  ncdu (NCurses Disk Usage) is a curses-based version of
   the well-known 'du', and provides a fast way to see what
   directories are using your disk space.
-  ncdu2 is based on ncdu 1.14.1 at git://g.blicky.net/ncdu.git
+  ncdu is forked git://g.blicky.net/ncdu.git
   
 Differences from v1.15.x
 ------------------------
@@ -22,23 +22,23 @@ Differences from v1.15.x
     as [imported YYYY-MM-DD] in upper right corner.
   - Remapped key mapping, and changed many defaults compared to ncdu.
   - Not possible to disable "extended info", also completely removed internally.
-  - Added NCDUZ front-end script that eases import/export of gzipped index files.
+  - Added **ncduz** front-end script that eases import/export of gzipped index files.
   
 Quick user guide
 ----------------
 
-  NCDU2 can be executed in three modes, 1) in-memory scan-mode (default),
+  **ncdu** can be executed in three modes, 1) in-memory scan-mode (default),
   2) import-mode, switch -f,  3) export-mode, switch -o. When using import
-  or export mode, it is recommended to use NCDUZ front-end instead, because
-  it handles compressed index files directly.
+  or export mode, it is recommended to use **ncduz** front-end script instead,
+  because it handles compressed index files directly.
   
-  A few important NCDU2 keyboard key functions:
+  A few important **ncdu** keyboard key functions:
   - Press H to show help screen.
   - Press UP ARROW, DOWN ARROW, PAGE UP, PAGE DOWN to move between items.
   - Press ENTER or RIGHT ARROW to go to selected directory
   - Press BACKSPACE or LEFT ARROW to go to parent directory
-  - Press S, A, C to sort items by size, disk size or count (twice=toggle direction)
-  - Press N, M to sort items by name or modification time
+  - Press N, M to sort items by name or modification time (twice=toggle direction)
+  - Press S, A, C to sort items by size, apparent size, or count
   - Press U, G to do first-order sorting by user or group (twice=toggle off)
   - Press P to print report from current view, including per-user usage.
       
