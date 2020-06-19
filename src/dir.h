@@ -62,14 +62,13 @@ struct dir_output {
    * The *item struct has the following fields set when item() is called:
    *   size, asize, ino, dev, flags (only DIR,FILE,ERR,OTHFS,EXL,HLNKC).
    * All other fields/flags should be initialized to NULL or 0.
-   * The name and dir_ext fields are given separately.
    * All pointers may be overwritten or freed in subsequent calls, so this
    * function should make a copy if necessary.
    *
    * The function should return non-zero on error, at which point errno is
    * assumed to be set to something sensible.
    */
-  int (*item)(struct dir *, const char *, struct dir_ext *);
+  int (*item)(struct dir *, const char *);
 
   /* Finalizes the output to go to the next program state or exit ncdu. Called
    * after item(NULL) has been called for the root item or before any item()
@@ -111,6 +110,7 @@ void dir_scan_init(const char *path);
 
 /* Importing a file */
 extern int dir_import_active;
+extern uint64_t dir_import_timestamp;
 int dir_import_init(const char *fn);
 
 #if HAVE_LINUX_MAGIC_H && HAVE_SYS_STATFS_H && HAVE_STATFS

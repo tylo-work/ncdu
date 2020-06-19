@@ -32,25 +32,28 @@
 static int page, start;
 
 
-#define KEYS 19
+#define KEYS 22
 static const char *keys[KEYS*2] = {
 /*|----key----|  |----------------description----------------|*/
-        "up, k", "Move cursor up",
-      "down, j", "Move cursor down",
-  "right/enter", "Open selected directory",
-   "left, <, h", "Open parent directory",
-            "n", "Sort by name (ascending/descending)",
-            "s", "Sort by size (ascending/descending)",
-            "C", "Sort by items (ascending/descending)",
-            "M", "Sort by mtime (-e flag)",
-            "d", "Delete selected file or directory",
-            "t", "Toggle dirs before files when sorting",
-            "g", "Show percentage and/or graph",
-            "a", "Toggle between apparent size and disk usage",
-            "c", "Toggle display of child item counts",
-            "m", "Toggle display of latest mtime (-e flag)",
-            "e", "Show/hide hidden or excluded files",
-            "i", "Show information about selected item",
+      "Up,Down", "Move cursor up or down",
+  "Enter/Right", "Open selected directory",
+ "Backspc/Left", "Open parent directory",
+            "n", "Sort by name (asc./desc.)",
+            "s", "Sort by size on disk (asc./desc.)",
+            "a", "Sort by apparent size (asc./desc.)",
+            "c", "Sort by item count (asc./desc.)",
+            "m", "Sort by mod. time",
+            "p", "Print report to file in ~/.ncdu/",
+            "u", "Toggle sort user first",
+            "g", "Toggle sort group first",
+            "f", "Toggle folders first",
+            "1", "Toggle 1024/1000 base size units",
+            "2", "Toggle percentage and/or graph",
+            "3", "Toggle display of child item counts",
+            "4", "Toggle display of extended info",
+            "x", "Toggle display of excluded/hidden files",
+        "Space", "Toggle information about selected item",
+     "Delete/d", "Delete selected file or directory",
             "r", "Recalculate the current directory",
             "b", "Spawn shell in current directory",
             "q", "Quit ncdu"
@@ -105,9 +108,9 @@ void help_draw() {
       ncaddstr(3, 4, "The X is only present in the following cases:");
       line = 4;
       for(i=start*2; i<start*2+14; i+=2) {
-        uic_set(UIC_FLAG);
+      uic_set(UIC_FLAG);
         ncaddstr(++line, 4, flags[i]);
-        uic_set(UIC_DEFAULT);
+      uic_set(UIC_DEFAULT);
         ncaddstr(line, 7, flags[i+1]);
       }
       if(start != FLAGS-7)
@@ -155,9 +158,11 @@ void help_draw() {
       ncaddstr(y+0, x+30, "NCurses");
       ncaddstr(y+1, x+30, "Disk");
       ncaddstr(y+2, x+30, "Usage");
-      ncprint( y+4, x+30, "%s", PACKAGE_VERSION);
+      ncprint( y+4, x+30, "v%s", PACKAGE_VERSION);
       ncaddstr( 9,  7, "Written by Yoran Heling <projects@yorhel.nl>");
-      ncaddstr(10, 16, "https://dev.yorhel.nl/ncdu/");
+      ncaddstr(10,  7, "   https://dev.yorhel.nl/ncdu/");
+      ncaddstr(11,  7, "Tyge Lovset <tylo@norceresearch.no>");
+      ncaddstr(12,  7, "   https://github.com/tylov/ncdu");
       break;
   }
 }
@@ -173,26 +178,22 @@ int help_key(int ch) {
       break;
     case KEY_RIGHT:
     case KEY_NPAGE:
-    case 'l':
       if(++page > 3)
         page = 3;
       start = 0;
       break;
     case KEY_LEFT:
     case KEY_PPAGE:
-    case 'h':
       if(--page < 1)
         page = 1;
       start = 0;
       break;
     case KEY_DOWN:
     case ' ':
-    case 'j':
       if((page == 1 && start < KEYS-10) || (page == 2 && start < FLAGS-7))
         start++;
       break;
     case KEY_UP:
-    case 'k':
       if(start > 0)
         start--;
       break;

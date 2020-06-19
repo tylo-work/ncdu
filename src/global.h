@@ -27,6 +27,7 @@
 #define _global_h
 
 #include "config.h"
+#include "cvector.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
@@ -62,14 +63,32 @@
 #define ST_SHELL  4
 #define ST_QUIT   5
 
+struct userdirstats {
+    uid_t uid;
+    int64_t size;
+    int items;
+};
+
+#ifndef NOUSERSTATS
+declare_CVector(usr, struct userdirstats, c_noDestroy, c_noCompare);
+#endif
 
 /* structure representing a file or directory */
 struct dir {
-  int64_t size, asize;
-  uint64_t ino, dev;
   struct dir *parent, *next, *prev, *sub, *hlnk;
+  ino_t ino;
+  dev_t dev;
+  int64_t size;
+  int64_t asize;
   int items;
   unsigned short flags;
+  unsigned short mode;
+  time_t mtime;
+  uid_t uid;
+  gid_t gid;
+#ifndef NOUSERSTATS
+  CVector_usr users;
+#endif
   char name[];
 };
 
@@ -83,16 +102,6 @@ struct dir {
  * information is lost in this conversion, and the semantics remain the same.
  */
 
-/* Extended information for a struct dir. This struct is stored in the same
- * memory region as struct dir, placed after the name field. See util.h for
- * macros to help manage this. */
-struct dir_ext {
-  uint64_t mtime;
-  int uid, gid;
-  unsigned short mode;
-};
-
-
 /* program state */
 extern int pstate;
 /* read-only flag, 1+ = disable deletion, 2+ = also disable shell */
@@ -103,8 +112,6 @@ extern long update_delay;
 extern int cachedir_tags;
 /* flag if we should ask for confirmation when quitting */
 extern int confirm_quit;
-/* flag whether we want to enable use of struct dir_ext */
-extern int extended_info;
 /* flag whether we want to follow symlinks */
 extern int follow_symlinks;
 /* flag whether we want to follow firmlinks */
