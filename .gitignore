@@ -14,10 +14,10 @@ missing
 .deps/
 .dirstamp
 *.o
+*.d
 stamp-h1
 ncdu
 ncdu.1
 *~
 *.swp
 static/*
-!static/build.sh

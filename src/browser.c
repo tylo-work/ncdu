@@ -29,16 +29,18 @@
 #include <stdlib.h>
 #include <ncurses.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-
-static int graph = 1, show_as = 0, info_show = 0, info_page = 0, info_start = 0, show_items = 0, show_mtime = 0;
+static int graph = 3, show_as = 0, info_show = 0, info_page = 0, info_start = 0, show_items = 1, show_mtime = 1;
 static const char *message = NULL;
 
+extern int si;
 
 
 static void browse_draw_info(struct dir *dr) {
   struct dir *t;
-  struct dir_ext *e = dir_ext_ptr(dr);
+  struct dir *e = dr->flags & FF_EXT ? dr : NULL;
   char mbuf[46];
   int i;
 
@@ -110,9 +112,8 @@ static void browse_draw_info(struct dir *dr) {
   addstrc(UIC_DEFAULT, " to hide this window");
 }
 
-
-static void browse_draw_flag(struct dir *n, int *x) {
-  addchc(n->flags & FF_BSEL ? UIC_FLAG_SEL : UIC_FLAG,
+static char get_draw_flag(struct dir *n) {
+    return
       n == dirlist_parent ? ' ' :
         n->flags & FF_EXL ? '<' :
         n->flags & FF_ERR ? '!' :
@@ -125,7 +126,11 @@ static void browse_draw_flag(struct dir *n, int *x) {
     || n->flags & FF_DIR) ? '@' :
         n->flags & FF_DIR
         && n->sub == NULL ? 'e' :
-                            ' ');
+                            ' ' ;
+}
+
+static void browse_draw_flag(struct dir *n, int *x) {
+  addchc(n->flags & FF_BSEL ? UIC_FLAG_SEL : UIC_FLAG, get_draw_flag(n));
   *x += 2;
 }
 
@@ -169,63 +174,118 @@ static void browse_draw_graph(struct dir *n, int *x) {
 }
 
 
-static void browse_draw_items(struct dir *n, int *x) {
-  enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
-  enum ui_coltype cn = c == UIC_SEL ? UIC_NUM_SEL : UIC_NUM;
-
-  if(!show_items)
+static void get_draw_graph(struct dir *n, int* x, char *out) {
+  float pc = 0.0f;
+  int o, i;
+  char buf[64];
+  int add = graph == 1 ? 13 : graph == 2 ? 9 : 20;
+  sprintf(out, "%22s", " ");
+  
+  if(graph == 0) {
     return;
-  *x += 7;
+  }
 
-  if(!n->items)
+  *x += add;
+
+  if(n == dirlist_parent) {
     return;
-  else if(n->items < 100*1000) {
-    uic_set(cn);
-    printw("%6s", fullsize(n->items));
-  } else if(n->items < 1000*1000) {
-    uic_set(cn);
-    printw("%5.1f", n->items / 1000.0);
-    addstrc(c, "k");
-  } else if(n->items < 1000*1000*1000) {
-    uic_set(cn);
-    printw("%5.1f", n->items / 1e6);
-    addstrc(c, "M");
+  }
+
+  *out++ = '[';
+
+  /* percentage (6 columns) */
+  if(graph == 2 || graph == 3) {
+    pc = (float)(show_as ? n->parent->asize : n->parent->size);
+    if(pc < 1)
+      pc = 1.0f;
+    sprintf(buf, "%5.1f%%", ((float)(show_as ? n->asize : n->size) / pc) * 100.0f);
+    strncpy(out, buf, 6);
+    out += 6;
+  }
+
+  if(graph == 3)
+    *out++ = ' ';
+
+  /* graph (10 columns) */
+  if(graph == 1 || graph == 3) {
+    o = (int)(10.0f*(float)(show_as ? n->asize : n->size) / (float)(show_as ? dirlist_maxa : dirlist_maxs));
+    for(i=0; i<10; i++)
+      *out++ = (i < o ? '#' : ' ');
+  }
+  strcpy(out, "]  ");
+}
+
+
+static void get_draw_count(struct dir *n, int *x, char* out) {
+  if(!show_items) {
+    *out = '\0';
+    return;
+  }
+  
+  *x += 8;
+  if (n->items == 0) {
+    sprintf(out, "          ");
+  } else if (n->items < 1000*1000) {
+    sprintf(out, "%6d  ", n->items);
+  } else if (n->items < 100*1000*1000) {
+    sprintf(out, "%5.2fM  ", n->items / 1e6);
+  } else if (n->items < 1000*1000*1000) {
+    sprintf(out, "%5.1fM  ", n->items / 1e6);
   } else {
-    addstrc(c, "  > ");
-    addstrc(cn, "1");
-    addchc(c, 'B');
+    sprintf(out, "%5.2fB  ", n->items / 1e9);
   }
 }
 
 
-static void browse_draw_mtime(struct dir *n, int *x) {
-  enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
-  char mbuf[26];
-  struct dir_ext *e;
+
+static void browse_draw_count(struct dir *n, int *x) {
+  enum ui_coltype cn = n->flags & FF_BSEL ? UIC_NUM_SEL : UIC_NUM;
+  char buf[32];
+  
+  if(!show_items)
+    return;
+
+  get_draw_count(n, x, buf);
+  uic_set(cn);
+  printw(buf);
+}
+
+
+static void get_draw_mtime(struct dir *n, int *x, char* out) {
+  char mbuf[32] = "....-..-.. ..:..", mdbuf[32] =  "----------";
+  char ubuf[32] = "-no-user", gbuf[32] = "-no-group";
+  struct dir *e = NULL;
   time_t t;
 
   if (n->flags & FF_EXT) {
-    e = dir_ext_ptr(n);
+    e = n;
   } else if (!strcmp(n->name, "..") && (n->parent->flags & FF_EXT)) {
-    e = dir_ext_ptr(n->parent);
-  } else {
-    snprintf(mbuf, sizeof(mbuf), "no mtime");
-    goto no_mtime;
+    e = n->parent;
+  } 
+  if (e) {
+    t = (time_t) e->mtime;
+    strftime(mbuf, sizeof(mbuf), "%Y-%m-%d %H:%M", localtime(&t));
+    strcpy(mdbuf, fmtmode(e->mode));
+    get_username(e->uid, ubuf, 9);
+    get_groupname(e->gid, gbuf, 9);
   }
-  t = (time_t)e->mtime;
+  sprintf(out, "%s  %s  %-9s %-9s   ", mbuf, mdbuf, ubuf, gbuf);
+  *x += 50;
+}
 
-  strftime(mbuf, sizeof(mbuf), "%Y-%m-%d %H:%M:%S %z", localtime(&t));
+static void browse_draw_mtime(struct dir *n, int *x) {
+  enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
+  char buf[64]; // 50 needed
+  get_draw_mtime(n, x, buf);
   uic_set(c == UIC_SEL ? UIC_NUM_SEL : UIC_NUM);
-no_mtime:
-  printw("%26s", mbuf);
-  *x += 27;
+  printw(buf);
 }
 
 
 static void browse_draw_item(struct dir *n, int row) {
   int x = 0;
-
   enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
+  
   uic_set(c);
   mvhline(row, 0, ' ', wincols);
   move(row, 0);
@@ -233,18 +293,20 @@ static void browse_draw_item(struct dir *n, int row) {
   browse_draw_flag(n, &x);
   move(row, x);
 
-  if(n != dirlist_parent)
+  if(n != dirlist_parent) {
     printsize(c, show_as ? n->asize : n->size);
+    if (show_as) printw("'");
+  }
   x += 10;
   move(row, x);
 
   browse_draw_graph(n, &x);
   move(row, x);
 
-  browse_draw_items(n, &x);
+  browse_draw_count(n, &x);
   move(row, x);
 
-  if (extended_info && show_mtime) {
+  if (show_mtime) {
     browse_draw_mtime(n, &x);
     move(row, x);
   }
@@ -255,11 +317,58 @@ static void browse_draw_item(struct dir *n, int row) {
   addstrc(c, cropstr(n->name, wincols-x-1));
 }
 
+static void get_draw_item(struct dir *n, char *line) {
+  int x = 0;
+
+  // flags
+  sprintf(&line[x], "%c ", get_draw_flag(n));
+  x += 2;
+
+  sprintf(&line[x], "%s", cropstr(n->name, 255));
+
+  // size
+  if(n != dirlist_parent) {
+    const char* unit;
+    float value = formatsize(show_as ? n->asize : n->size, &unit);
+    sprintf(&line[x], "%5.1f %s%c  ", value, unit, show_as ? '\'' : ' ');
+  } else {
+    sprintf(&line[x], "              ");
+  }
+  x += 10;
+  
+  // graph
+  get_draw_graph(n, &x, &line[x]);
+  // item count
+  get_draw_count(n, &x, &line[x]);
+  // mod time
+  if (show_mtime) {
+    get_draw_mtime(n, &x, &line[x]);
+  }
+  // dir slash
+  sprintf(&line[x++], "%c", (n->flags & FF_DIR ? '/' : ' '));
+  // file/dir name
+  sprintf(&line[x], "%s", cropstr(n->name, 255));
+}
+
+
+void get_sortflags(char* out) {
+  sprintf(out, "%c%c%c%c%c", 
+          dirlist_sort_id == 1 ? 'u' : (dirlist_sort_id == 2 ? 'g' : '-'),
+          dirlist_sort_df ? 'f' : '-', 
+          dirlist_sort_col == DL_COL_ASIZE ? 'a' :
+          dirlist_sort_col == DL_COL_SIZE ? 's' :
+          dirlist_sort_col == DL_COL_ITEMS ? 'c' :
+          dirlist_sort_col == DL_COL_NAME ? 'n' : 'm',
+          dirlist_sort_desc ? '-' : '^',
+          dirlist_hidden ? 'h' : '-');
+}
+
 
 void browse_draw() {
   struct dir *t;
   const char *tmp;
   int selected = 0, i;
+  char buf[32];
 
   erase();
   t = dirlist_get(0);
@@ -269,10 +378,16 @@ void browse_draw() {
   mvhline(0, 0, ' ', wincols);
   mvprintw(0,0,"%s %s ~ Use the arrow keys to navigate, press ", PACKAGE_NAME, PACKAGE_VERSION);
   addchc(UIC_KEY_HD, '?');
-  addstrc(UIC_HD, " for help");
-  if(dir_import_active)
-    mvaddstr(0, wincols-10, "[imported]");
-  else if(read_only)
+  addstrc(UIC_HD, " or ");
+  addchc(UIC_KEY_HD, 'h');
+  addstrc(UIC_HD, " for help, and ");
+  addchc(UIC_KEY_HD, 'q');
+  addstrc(UIC_HD, " to quit.");
+  
+  if(dir_import_active) {
+    strftime(buf, sizeof(buf), "[imported %Y-%m-%d]", localtime(&dir_import_timestamp));
+    mvaddstr(0, wincols-21, buf);
+  } else if(read_only)
     mvaddstr(0, wincols-11, "[read-only]");
 
   /* second line - the path */
@@ -288,14 +403,33 @@ void browse_draw() {
   uic_set(UIC_HD);
   mvhline(winrows-1, 0, ' ', wincols);
   if(t) {
-    mvaddstr(winrows-1, 0, " Total disk usage: ");
+    mvaddstr(winrows-1, 1, "Disk usage:");
     printsize(UIC_HD, t->parent->size);
-    addstrc(UIC_HD, "  Apparent size: ");
+    addstrc(UIC_HD, "  Apparent size:");
     uic_set(UIC_NUM_HD);
     printsize(UIC_HD, t->parent->asize);
-    addstrc(UIC_HD, "  Items: ");
+    addstrc(UIC_HD, "  Items:");
     uic_set(UIC_NUM_HD);
-    printw("%d", t->parent->items);
+    printw(" %d", t->parent->items);
+    addstrc(UIC_HD, "  Sort flags: ");
+    uic_set(UIC_NUM_HD);
+    get_sortflags(buf);
+    printw(buf);
+#ifndef NOUSERSTATS
+    get_username(getuid(), buf, 12);
+    printw("  User %s:", buf);
+    struct userdirstats *us = get_userdirstats(t->parent, getuid());
+    if (us) {
+      addstrc(UIC_HD, "  Disk usage:");
+      uic_set(UIC_NUM_HD);
+      printsize(UIC_HD, us->size);
+      addstrc(UIC_HD, "  Items:");
+      uic_set(UIC_NUM_HD);
+      printw(" %d", us->items);
+    } else {
+      printw(" no files");
+    }
+#endif
   } else
     mvaddstr(winrows-1, 0, " No items to display.");
   uic_set(UIC_DEFAULT);
@@ -331,6 +465,105 @@ void browse_draw() {
   move(selected+2, 0);
 }
 
+int compare_stats(const void *a, const void *b)
+{
+  struct userdirstats *stats_a = (struct userdirstats *) a,
+                      *stats_b = (struct userdirstats *) b;
+  // Dont take diff, because they are unsigned 64 bits.
+  return stats_b->size < stats_a->size ? -1 : stats_b->size > stats_a->size ? 1 : 0;
+  // Items:
+  //return stats_a->items - stats_b->items;
+  // Username:
+  //char buf_a[64], buf_b[64];
+  //get_username(stats_a->uid, buf_a, 63);
+  //get_username(stats_b->uid, buf_b, 63);
+  //return strcmp(buf_a, buf_b);
+}
+
+char* replace_char(char* str, char find, char replace) {
+  char *current_pos = strchr(str,find);
+  while (current_pos) {
+    *current_pos = replace;
+    current_pos = strchr(current_pos + 1, find);
+  }
+  return str;
+}
+
+void write_report(void)
+{
+  int i, n;
+  char output[2048], line[512], path1[512], timebuf[32], sflagsbuf[16];
+  FILE* fp;
+  time_t tm = time(NULL);
+  struct dir *t = dirlist_get_head();
+  float value;
+  const char* unit;
+  struct stat sb;
+
+  if (!t || !t->parent) {
+    message = "No current dir";
+    return;
+  }
+
+  if (dir_import_active) {
+    tm = dir_import_timestamp;
+  }
+  sprintf(path1, "%s/.ncdu", getenv("HOME"));
+  if (stat(path1, &sb) == -1) {
+    if (mkdir(path1, 0775) == -1) {
+      message = "Cannot create $HOME/.ncdu  folder";
+      return;
+    }
+  }
+  strftime(timebuf, sizeof(timebuf), "%Y-%m-%d", localtime(&tm));
+  sprintf(output, "%s/report-%s", path1, timebuf);
+  if (stat(output, &sb) == -1) {
+    if (mkdir(output, 0775) == -1) {
+      message = "Cannot create report in $HOME/.ncdu folder";
+      return;
+    }
+  }
+  
+  strcpy(line, getpath(t->parent));
+  replace_char(line, '/', '.');
+  get_sortflags(sflagsbuf);  
+  strcpy(path1, output);
+  sprintf(output, "%s/report-%s%s#%c%c.txt", path1, timebuf, line, sflagsbuf[0], sflagsbuf[2]);
+
+  fp = fopen(output, "w");
+  fprintf(fp, "NCDU disk usage report\n");
+  fprintf(fp, "-----------------------\n");
+  fprintf(fp, "       Directory : %s\n", getpath(t->parent));
+  fprintf(fp, "            Date : %s%s\n", timebuf, (dir_import_active ? " [imported]" : ""));
+  value = formatsize(t->parent->size, &unit);
+  fprintf(fp, "      Disk usage : %6.2f %s\n", value, unit);
+  value = formatsize(t->parent->asize, &unit);
+  fprintf(fp, "   Apparent size : %6.2f %s\n", value, unit);
+  fprintf(fp, "     Items count : %d\n", t->parent->items);
+  fprintf(fp, "      Sort flags : %s\n\n", sflagsbuf);
+#ifndef NOUSERSTATS
+  fprintf(fp, "Disk usage per user\n");
+  fprintf(fp, "-------------------\n");
+  n = cvector_size(t->parent->users);
+  qsort(t->parent->users.data, n, sizeof(struct userdirstats), compare_stats);
+  struct userdirstats *us = t->parent->users.data;
+  for (i = 0; i < n; ++i, ++us) {
+    get_username(us->uid, output, 15);
+    value = formatsize(us->size, &unit);
+    fprintf(fp, "  %-15s: disk: %6.2f %s  items: %d\n", output, value, unit, us->items);
+  }
+#endif
+  /* print the list to a file */
+  fprintf(fp, "\n");
+  for(i = 0; t != NULL; t = dirlist_next(t), ++i) {
+    get_draw_item(t, line);
+    fprintf(fp, "%s\n", line);
+  }
+  fclose(fp);
+
+  message = "Report saved under $HOME/.ncdu/";
+}
+
 
 int browse_key(int ch) {
   struct dir *t, *sel;
@@ -356,20 +589,22 @@ int browse_key(int ch) {
       break;
     case KEY_RIGHT:
     case 'l':
+    case '>':
       if(sel->hlnk) {
         info_page = 1;
         catch++;
       }
       break;
     case KEY_LEFT:
-    case 'h':
+    case 'j':
+    case '<':
       if(sel->hlnk) {
         info_page = 0;
         catch++;
       }
       break;
     case KEY_UP:
-    case 'k':
+    case 'i':
       if(sel->hlnk && info_page == 1) {
         if(info_start > 0)
           info_start--;
@@ -377,7 +612,7 @@ int browse_key(int ch) {
       }
       break;
     case KEY_DOWN:
-    case 'j':
+    case 'k':
     case ' ':
       if(sel->hlnk && info_page == 1) {
         for(i=0,t=sel->hlnk; t!=sel; t=t->hlnk)
@@ -393,13 +628,13 @@ int browse_key(int ch) {
     switch(ch) {
     /* selecting items */
     case KEY_UP:
-    case 'k':
+    case 'i':
       dirlist_select(dirlist_get(-1));
       dirlist_top(-1);
       info_start = 0;
       break;
     case KEY_DOWN:
-    case 'j':
+    case 'k':
       dirlist_select(dirlist_get(1));
       dirlist_top(1);
       info_start = 0;
@@ -427,44 +662,52 @@ int browse_key(int ch) {
       break;
 
     /* sorting items */
-    case 'n':
+    case 'n': // name
       dirlist_set_sort(DL_COL_NAME, dirlist_sort_col == DL_COL_NAME ? !dirlist_sort_desc : 0, DL_NOCHANGE);
       info_show = 0;
       break;
-    case 's':
-      i = show_as ? DL_COL_ASIZE : DL_COL_SIZE;
-      dirlist_set_sort(i, dirlist_sort_col == i ? !dirlist_sort_desc : 1, DL_NOCHANGE);
+    case 's': // disk usage
+      show_as = 0;
+      dirlist_set_sort(DL_COL_SIZE, dirlist_sort_col == DL_COL_SIZE ? !dirlist_sort_desc : 1, DL_NOCHANGE);
       info_show = 0;
       break;
-    case 'C':
+    case 'c': // item count
+      info_show = 0;
       dirlist_set_sort(DL_COL_ITEMS, dirlist_sort_col == DL_COL_ITEMS ? !dirlist_sort_desc : 1, DL_NOCHANGE);
+      break;
+    case 'm': // mtime
+      dirlist_set_sort(DL_COL_MTIME, dirlist_sort_col == DL_COL_MTIME ? !dirlist_sort_desc : 1, DL_NOCHANGE);
       info_show = 0;
       break;
-    case 'M':
-      if (extended_info) {
-        dirlist_set_sort(DL_COL_MTIME, dirlist_sort_col == DL_COL_MTIME ? !dirlist_sort_desc : 1, DL_NOCHANGE);
-        info_show = 0;
-      }
-      break;
-    case 'e':
+    case 'e': // hidden
       dirlist_set_hidden(!dirlist_hidden);
       info_show = 0;
       break;
-    case 't':
+    case 'f': // folder first
       dirlist_set_sort(DL_NOCHANGE, DL_NOCHANGE, !dirlist_sort_df);
       info_show = 0;
       break;
-    case 'a':
-      show_as = !show_as;
-      if(dirlist_sort_col == DL_COL_ASIZE || dirlist_sort_col == DL_COL_SIZE)
-        dirlist_set_sort(show_as ? DL_COL_ASIZE : DL_COL_SIZE, DL_NOCHANGE, DL_NOCHANGE);
+    case 'a': // asize
+      dirlist_set_sort(DL_COL_ASIZE, dirlist_sort_col == DL_COL_ASIZE ? !dirlist_sort_desc : 1, DL_NOCHANGE);
+      show_as = 1;
       info_show = 0;
       break;
-
+    case 'u':
+      dirlist_sort_id = (dirlist_sort_id != 1 ? 1 : 0);
+      dirlist_set_sort(DL_NOCHANGE, DL_NOCHANGE, DL_NOCHANGE);
+      info_show = 0;
+      break;
+    case 'g':
+      dirlist_sort_id = (dirlist_sort_id != 2 ? 2 : 0);
+      dirlist_set_sort(DL_NOCHANGE, DL_NOCHANGE, DL_NOCHANGE);
+      info_show = 0;
+      break;      
+      
     /* browsing */
     case 10:
     case KEY_RIGHT:
     case 'l':
+    case '>':
       if(sel != NULL && sel->flags & FF_DIR) {
         dirlist_open(sel == dirlist_parent ? dirlist_par->parent : sel);
         dirlist_top(-3);
@@ -473,7 +716,7 @@ int browse_key(int ch) {
       break;
     case KEY_LEFT:
     case KEY_BACKSPACE:
-    case 'h':
+    case 'j':
     case '<':
       if(dirlist_par && dirlist_par->parent != NULL) {
         dirlist_open(dirlist_par->parent);
@@ -503,25 +746,32 @@ int browse_key(int ch) {
           quit_init();
         else return 1;
       break;
-    case 'g':
+
+    case '1': // view sizes in 10^3 vs 2^10 base
+      si = !si;
+      dirlist_set_sort(DL_NOCHANGE, DL_NOCHANGE, DL_NOCHANGE);
+      info_show = 0;
+      break;      
+    case '2':
       if(++graph > 3)
         graph = 0;
       info_show = 0;
       break;
-    case 'c':
+    case '3':
       show_items = !show_items;
       break;
-    case 'm':
-      if (extended_info)
-        show_mtime = !show_mtime;
+    case '4':
+      show_mtime = !show_mtime;
       break;
-    case 'i':
+    case ' ':
       info_show = !info_show;
       break;
+    case 'h':
     case '?':
       help_init();
       info_show = 0;
       break;
+    case KEY_DC:
     case 'd':
       if(read_only >= 1 || dir_import_active) {
         message = read_only >= 1
@@ -545,6 +795,10 @@ int browse_key(int ch) {
         break;
       }
       shell_init();
+      break;
+
+    case 'p':
+      write_report();
       break;
     }
 

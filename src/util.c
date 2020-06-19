@@ -33,12 +33,27 @@
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
 #endif
+#include <pwd.h>
+#include <grp.h>
+#include <assert.h>
 
 int uic_theme;
 int winrows, wincols;
 int subwinr, subwinc;
 int si;
 static char thou_sep;
+
+void get_username(uid_t uid, char buf[], int max) {
+  struct passwd* pw = getpwuid(uid);
+  if (pw) cropstr2(pw->pw_name, buf, max);
+  else sprintf(buf, "%d", uid);
+}
+
+void get_groupname(gid_t gid, char buf[], int max) {
+  struct group* gr = getgrgid(gid);
+  if (gr) cropstr2(gr->gr_name, buf, max);
+  else sprintf(buf, "%d", gid);  
+}
 
 
 char *cropstr(const char *from, int s) {
@@ -61,27 +76,33 @@ char *cropstr(const char *from, int s) {
   return dat;
 }
 
+void cropstr2(const char *from, char buf[], int s) {
+  int o = strlen(from);
+  if (o <= s) {
+    strcpy(buf, from);
+  } else {
+    strncpy(buf, from, s - 2);
+    buf[s - 2] = '.';
+    buf[s - 1] = '.';
+    buf[s] = '\0';
+  }
+}
+
 
 float formatsize(int64_t from, const char **unit) {
   float r = from;
-  if (si) {
-    if(r < 1000.0f)   { *unit = " B"; }
-    else if(r < 1e6f) { *unit = "KB"; r/=1e3f; }
-    else if(r < 1e9f) { *unit = "MB"; r/=1e6f; }
-    else if(r < 1e12f){ *unit = "GB"; r/=1e9f; }
-    else if(r < 1e15f){ *unit = "TB"; r/=1e12f; }
-    else if(r < 1e18f){ *unit = "PB"; r/=1e15f; }
-    else              { *unit = "EB"; r/=1e18f; }
-  }
-  else {
-    if(r < 1000.0f)      { *unit = "  B"; }
-    else if(r < 1023e3f) { *unit = "KiB"; r/=1024.0f; }
-    else if(r < 1023e6f) { *unit = "MiB"; r/=1048576.0f; }
-    else if(r < 1023e9f) { *unit = "GiB"; r/=1073741824.0f; }
-    else if(r < 1023e12f){ *unit = "TiB"; r/=1099511627776.0f; }
-    else if(r < 1023e15f){ *unit = "PiB"; r/=1125899906842624.0f; }
-    else                 { *unit = "EiB"; r/=1152921504606846976.0f; }
-  }
+  int64_t b1 = si ? 1000 : 1024;
+  int64_t b2 = b1*b1, b3 = b2*b1, b4 = b3*b1, b5 = b4*b1, b6 = b5*b1;
+  static char* units[][6] = {{"K ", "M ", "G ", "T ", "P ", "E "},
+                             {"KB", "MB", "GB", "TB", "PB", "EB"}};
+  char** t = units[si];
+  if      (r < 1000)    { *unit = "B "; }
+  else if (r < 1000*b1) { *unit = t[0]; r /= b1; }
+  else if (r < 1000*b2) { *unit = t[1]; r /= b2; }
+  else if (r < 1000*b3) { *unit = t[2]; r /= b3; }
+  else if (r < 1000*b4) { *unit = t[3]; r /= b4; }
+  else if (r < 1000*b5) { *unit = t[4]; r /= b5; }
+  else                  { *unit = t[5]; r /= b6; }
   return r;
 }
 
@@ -90,7 +111,8 @@ void printsize(enum ui_coltype t, int64_t from) {
   const char *unit;
   float r = formatsize(from, &unit);
   uic_set(t == UIC_HD ? UIC_NUM_HD : t == UIC_SEL ? UIC_NUM_SEL : UIC_NUM);
-  printw("%5.1f", r);
+  if (unit[0] == 'B') printw("%6g", r);
+  else                printw("%6.2f", r);
   addchc(t, ' ');
   addstrc(t, unit);
 }
@@ -113,8 +135,8 @@ char *fullsize(int64_t from) {
   j = 0;
   while(i--) {
     dat[j++] = tmp[i];
-    if(i != 0 && i%3 == 0)
-      dat[j++] = thou_sep;
+    //if(i != 0 && i%3 == 0)
+      //dat[j++] = thou_sep;
   }
   dat[j] = '\0';
 
@@ -171,8 +193,8 @@ int ncresize(int minrows, int mincols) {
     ch = getch();
     getmaxyx(stdscr, winrows, wincols);
     if(ch == 'q') {
-      erase();
-      refresh();
+      //erase();
+      //refresh();
       endwin();
       exit(0);
     }
@@ -183,6 +205,21 @@ int ncresize(int minrows, int mincols) {
   return 0;
 }
 
+#ifdef SIMPLE_BOX
+  #define acs_ulcorner '+'
+  #define acs_urcorner '+'
+  #define acs_lrcorner '+'
+  #define acs_llcorner '+'
+  #define acs_hline '-'
+  #define acs_vline '|'
+#else
+  #define acs_ulcorner ACS_ULCORNER
+  #define acs_urcorner ACS_URCORNER
+  #define acs_lrcorner ACS_LRCORNER
+  #define acs_llcorner ACS_LLCORNER
+  #define acs_hline ACS_HLINE
+  #define acs_vline ACS_VLINE
+#endif
 
 void nccreate(int height, int width, const char *title) {
   int i;
@@ -197,19 +234,19 @@ void nccreate(int height, int width, const char *title) {
 
   /* box() only works around curses windows, so create our own */
   move(subwinr, subwinc);
-  addch(ACS_ULCORNER);
+  addch(acs_ulcorner);
   for(i=0; i<width-2; i++)
-    addch(ACS_HLINE);
-  addch(ACS_URCORNER);
+    addch(acs_hline);
+  addch(acs_urcorner);
 
   move(subwinr+height-1, subwinc);
-  addch(ACS_LLCORNER);
+  addch(acs_llcorner);
   for(i=0; i<width-2; i++)
-    addch(ACS_HLINE);
-  addch(ACS_LRCORNER);
+    addch(acs_hline);
+  addch(acs_lrcorner);
 
-  mvvline(subwinr+1, subwinc, ACS_VLINE, height-2);
-  mvvline(subwinr+1, subwinc+width-1, ACS_VLINE, height-2);
+  mvvline(subwinr+1, subwinc, acs_vline, height-2);
+  mvvline(subwinr+1, subwinc+width-1, acs_vline, height-2);
 
   /* title */
   uic_set(UIC_BOX_TITLE);
@@ -276,7 +313,50 @@ void uic_set(enum ui_coltype c) {
   attron(lastcolor);
 }
 
+#ifndef NOUSERSTATS
+struct userdirstats*
+get_userdirstats(struct dir* d, uid_t uid) {
+  struct userdirstats* us = d->users.data;
+  int i, n = cvector_size(d->users);
+  
+  for (i = 0; i < n; ++i, ++us) {
+    if (us->uid == uid) return us;
+  }
+  return NULL;
+}
+#endif
 
+int add_dirstats(struct dir* d, uid_t uid,
+                  int64_t size, int64_t asize, int items) {
+  assert(d->flags & FF_DIR);
+  int ret = 0;
+  d->size += size;
+  d->asize += asize;
+  d->items += items;
+#ifndef NOUSERSTATS
+  if (d->flags & FF_EXT) {
+    struct userdirstats *us = get_userdirstats(d, uid);
+    if (us) {
+      us->size += size;
+      us->items += items;
+      ret = 1;
+    } else {
+      struct userdirstats new_us = {uid, size, items};
+      assert(size >= 0 && items > 0);
+      cvector_usr_pushBack(&d->users, new_us);
+      ret = 2;
+    }
+  }
+#endif
+  return ret;
+}
+
+void dir_destruct(struct dir *d) {
+#ifndef NOUSERSTATS
+  cvector_usr_destroy(&d->users);
+#endif
+  free(d);
+}
 
 /* removes item from the hlnk circular linked list and size counts of the parents */
 static void freedir_hlnk(struct dir *d) {
@@ -299,8 +379,7 @@ static void freedir_hlnk(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      par->size = adds64(par->size, -d->size);
-      par->asize = adds64(par->size, -d->asize);
+      add_dirstats(par, d->uid, -d->size, -d->asize, 0);
     }
   }
 
@@ -321,7 +400,7 @@ static void freedir_rec(struct dir *dr) {
     /* remove item */
     if(tmp->sub) freedir_rec(tmp->sub);
     tmp2 = tmp->next;
-    free(tmp);
+    dir_destruct(tmp);
   }
 }
 
@@ -349,9 +428,8 @@ void freedir(struct dir *dr) {
    *
    * mtime is 0 here because recalculating the maximum at every parent
    * dir is expensive, but might be good feature to add later if desired */
-  addparentstats(dr->parent, dr->flags & FF_HLNKC ? 0 : -dr->size, dr->flags & FF_HLNKC ? 0 : -dr->asize, 0, -(dr->items+1));
-
-  free(dr);
+  addparentstats(dr->parent, dr->uid, dr->flags & FF_HLNKC ? 0 : -dr->size, dr->flags & FF_HLNKC ? 0 : -dr->asize, 0, -(dr->items+1));
+  dir_destruct(dr);
 }
 
 
@@ -401,15 +479,11 @@ struct dir *getroot(struct dir *d) {
 }
 
 
-void addparentstats(struct dir *d, int64_t size, int64_t asize, uint64_t mtime, int items) {
-  struct dir_ext *e;
+void addparentstats(struct dir *d, uid_t uid, int64_t size, int64_t asize, time_t mtime, int items) {
   while(d) {
-    d->size = adds64(d->size, size);
-    d->asize = adds64(d->asize, asize);
-    d->items += items;
+    add_dirstats(d, uid, size, asize, items);
     if (d->flags & FF_EXT) {
-      e = dir_ext_ptr(d);
-      e->mtime = (e->mtime > mtime) ? e->mtime : mtime;
+      d->mtime = (d->mtime > mtime) ? d->mtime : mtime;
     }
     d = d->parent;
   }
@@ -419,7 +493,8 @@ void addparentstats(struct dir *d, int64_t size, int64_t asize, uint64_t mtime, 
 /* Apparently we can just resume drawing after endwin() and ncurses will pick
  * up where it left. Probably not very portable...  */
 #define oom_msg "\nOut of memory, press enter to try again or Ctrl-C to give up.\n"
-#define wrap_oom(f) \
+#define wrap_oom(f) return f;
+#define wrap_oom_orig(f) \
   void *ptr;\
   char buf[128];\
   while((ptr = f) == NULL) {\
@@ -429,6 +504,6 @@ void addparentstats(struct dir *d, int64_t size, int64_t asize, uint64_t mtime, 
   }\
   return ptr;
 
-void *xmalloc(size_t size) { wrap_oom(malloc(size)) }
+void *xmalloc(size_t size) { wrap_oom(calloc(1, size)) }
 void *xcalloc(size_t n, size_t size) { wrap_oom(calloc(n, size)) }
 void *xrealloc(void *mem, size_t size) { wrap_oom(realloc(mem, size)) }

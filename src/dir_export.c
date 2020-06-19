@@ -74,10 +74,7 @@ static void output_int(uint64_t n) {
 }
 
 
-static void output_info(struct dir *d, const char *name, struct dir_ext *e) {
-  if(!extended_info || !(d->flags & FF_EXT))
-    e = NULL;
-
+static void output_info(struct dir *d, const char *name) {
   fputs("{\"name\":\"", stream);
   output_string(name);
   fputc('"', stream);
@@ -99,15 +96,15 @@ static void output_info(struct dir *d, const char *name, struct dir_ext *e) {
   fputs(",\"ino\":", stream);
   output_int(d->ino);
 
-  if(e) {
+  if(d->flags & FF_EXT) {
     fputs(",\"uid\":", stream);
-    output_int(e->uid);
+    output_int(d->uid);
     fputs(",\"gid\":", stream);
-    output_int(e->gid);
+    output_int(d->gid);
     fputs(",\"mode\":", stream);
-    output_int(e->mode);
+    output_int(d->mode);
     fputs(",\"mtime\":", stream);
-    output_int(e->mtime);
+    output_int(d->mtime);
   }
 
   /* TODO: Including the actual number of links would be nicer. */
@@ -136,7 +133,7 @@ static void output_info(struct dir *d, const char *name, struct dir_ext *e) {
  * item() call do we check for ferror(). This greatly simplifies the code, but
  * assumes that calls to fwrite()/fput./etc don't do any weird stuff when
  * called with a stream that's in an error state. */
-static int item(struct dir *item, const char *name, struct dir_ext *ext) {
+static int item(struct dir *item, const char *name) {
   if(!item) {
     nstack_pop(&stack);
     if(!stack.top) { /* closing of the root item */
@@ -161,7 +158,7 @@ static int item(struct dir *item, const char *name, struct dir_ext *ext) {
   if(item->flags & FF_DIR)
     fputc('[', stream);
 
-  output_info(item, name, ext);
+  output_info(item, name);
 
   if(item->flags & FF_DIR)
     nstack_push(&stack, item->dev);
