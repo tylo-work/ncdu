@@ -83,8 +83,7 @@ static void hlink_check(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      par->size = adds64(par->size, d->size);
-      par->asize = adds64(par->asize, d->asize);
+      add_dirstats(par, d->uid, d->size, d->asize, 0);
     }
   }
 }
@@ -109,7 +108,7 @@ static void item_add(struct dir *item) {
 }
 
 
-static int item(struct dir *dir, const char *name, struct dir_ext *ext) {
+static int item(struct dir *dir, const char *name) {
   struct dir *t, *item;
 
   /* Go back to parent dir */
@@ -121,13 +120,9 @@ static int item(struct dir *dir, const char *name, struct dir_ext *ext) {
   if(!root && orig)
     name = orig->name;
 
-  if(!extended_info)
-    dir->flags &= ~FF_EXT;
-  item = xmalloc(dir->flags & FF_EXT ? dir_ext_memsize(name) : dir_memsize(name));
+  item = xcalloc(1, dir_memsize(name));
   memcpy(item, dir, offsetof(struct dir, name));
   strcpy(item->name, name);
-  if(dir->flags & FF_EXT)
-    memcpy(dir_ext_ptr(item), ext, sizeof(struct dir_ext));
 
   item_add(item);
 
@@ -144,12 +139,10 @@ static int item(struct dir *dir, const char *name, struct dir_ext *ext) {
    * possible hard link, because hlnk_check() will take care of it in that
    * case. */
   if(item->flags & FF_HLNKC) {
-    addparentstats(item->parent, 0, 0, 0, 1);
+    addparentstats(item->parent, item->uid, 0, 0, 0, 1);
     hlink_check(item);
-  } else if(item->flags & FF_EXT) {
-    addparentstats(item->parent, item->size, item->asize, dir_ext_ptr(item)->mtime, 1);
   } else {
-    addparentstats(item->parent, item->size, item->asize, 0, 1);
+    addparentstats(item->parent, item->uid, item->size, item->asize, item->mtime, 1);
   }
 
   /* propagate ERR and SERR back up to the root */

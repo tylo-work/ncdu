@@ -32,6 +32,7 @@
 
 #include <unistd.h>
 #include <sys/time.h>
+#include <locale.h>
 
 #include <yopt.h>
 
@@ -40,10 +41,9 @@ int pstate;
 int read_only = 0;
 long update_delay = 100;
 int cachedir_tags = 0;
-int extended_info = 0;
 int follow_symlinks = 0;
 int follow_firmlinks = 1;
-int confirm_quit = 0;
+int confirm_quit = -1;
 
 static int min_rows = 17, min_cols = 60;
 static int ncurses_init = 0;
@@ -125,7 +125,7 @@ static void argv_parse(int argc, char **argv) {
   static yopt_opt_t opts[] = {
     { 'h', 0, "-h,-?,--help" },
     { 'q', 0, "-q" },
-    { 'v', 0, "-v,-V,--version" },
+    { 'v', 0, "-v,--version" },
     { 'x', 0, "-x" },
     { 'e', 0, "-e" },
     { 'r', 0, "-r" },
@@ -134,6 +134,8 @@ static void argv_parse(int argc, char **argv) {
     { '0', 0, "-0" },
     { '1', 0, "-1" },
     { '2', 0, "-2" },
+    { 'u', 0, "-u" },
+    { 'g', 0, "-g" },
     {  1,  1, "--exclude" },
     { 'X', 1, "-X,--exclude-from" },
     { 'L', 0, "-L,--follow-symlinks" },
@@ -143,6 +145,7 @@ static void argv_parse(int argc, char **argv) {
     {  4,  0, "--exclude-firmlinks" },
     { 's', 0, "--si" },
     { 'Q', 0, "--confirm-quit" },
+    { 'y', 0, "-y" },
     { 'c', 1, "--color" },
     {0,0,NULL}
   };
@@ -155,16 +158,16 @@ static void argv_parse(int argc, char **argv) {
     switch(v) {
     case  0 : dir = val; break;
     case 'h':
-      printf("ncdu <options> <directory>\n\n");
+      printf("ncdu <options> <directory>\n");
       printf("  -h,--help                  This help message\n");
       printf("  -q                         Quiet mode, refresh interval 2 seconds\n");
-      printf("  -v,-V,--version            Print version\n");
-      printf("  -x                         Same filesystem\n");
-      printf("  -e                         Enable extended information\n");
-      printf("  -r                         Read only\n");
+      printf("  -x                         Exclude scanning other file systems\n");
+      printf("  -r                         Read only. Disables delete function.\n");
       printf("  -o FILE                    Export scanned directory to FILE\n");
       printf("  -f FILE                    Import scanned directory from FILE\n");
       printf("  -0,-1,-2                   UI to use when scanning (0=none,2=full ncurses)\n");
+      printf("  -u,                        Sort user as top-level criteria\n");
+      printf("  -g                         Sort group as top-level criteria\n");
       printf("  --si                       Use base 10 (SI) prefixes instead of base 2\n");
       printf("  --exclude PATTERN          Exclude files that match PATTERN\n");
       printf("  -X, --exclude-from FILE    Exclude files that match any pattern in FILE\n");
@@ -177,14 +180,16 @@ static void argv_parse(int argc, char **argv) {
       printf("  --exclude-firmlinks        Exclude firmlinks on macOS\n");
 #endif
       printf("  --confirm-quit             Confirm quitting ncdu\n");
+      printf("  -y                         Quit with no confirm (default on import)\n");
       printf("  --color SCHEME             Set color scheme (off/dark)\n");
+      printf("  --version                  Print version\n");
       exit(0);
     case 'q': update_delay = 2000; break;
     case 'v':
       printf("ncdu %s\n", PACKAGE_VERSION);
       exit(0);
     case 'x': dir_scan_smfs = 1; break;
-    case 'e': extended_info = 1; break;
+    case 'e': break; // backward comp.
     case 'r': read_only++; break;
     case 's': si = 1; break;
     case 'o': export = val; break;
@@ -192,7 +197,10 @@ static void argv_parse(int argc, char **argv) {
     case '0': dir_ui = 0; break;
     case '1': dir_ui = 1; break;
     case '2': dir_ui = 2; break;
+    case 'u': dirlist_sort_id = 1; break;
+    case 'g': dirlist_sort_id = 2; break;
     case 'Q': confirm_quit = 1; break;
+    case 'y': confirm_quit = 0; break;
     case  1 : exclude_add(val); break; /* --exclude */
     case 'X':
       if(exclude_addfile(val)) {
@@ -257,8 +265,11 @@ static void argv_parse(int argc, char **argv) {
     }
     if(strcmp(import, "-") == 0)
       ncurses_tty = 1;
-  } else
+    if (confirm_quit == -1) confirm_quit = 0;
+  } else {
     dir_scan_init(dir ? dir : ".");
+    if (confirm_quit == -1) confirm_quit = 1;
+  }
 
   /* Use the single-line scan feedback by default when exporting to file, no
    * feedback when exporting to stdout. */

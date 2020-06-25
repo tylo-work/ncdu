@@ -56,6 +56,7 @@
 
 
 int dir_import_active = 0;
+uint64_t dir_import_timestamp = 0;
 
 
 /* Use a struct for easy batch-allocation and deallocation of state data. */
@@ -71,7 +72,6 @@ static struct ctx {
 
   /* scratch space */
   struct dir    *buf_dir;
-  struct dir_ext buf_ext[1];
 
   char buf_name[MAX_VAL];
   char val[MAX_VAL];
@@ -376,6 +376,35 @@ static int rval(void) {
 }
 
 
+static int metadata() {
+  uint64_t iv;
+
+  E(*ctx->buf != '{', "Expected JSON object");
+  con(1);
+
+  while(1) {
+    C(rkey(ctx->val, MAX_VAL));
+    /* TODO: strcmp() in this fashion isn't very fast. */
+    if(strcmp(ctx->val, "progname") == 0) {
+      C(rstring(ctx->val, MAX_VAL));
+    } else if(strcmp(ctx->val, "progver") == 0) {
+      C(rstring(ctx->val, MAX_VAL));
+    } else if(strcmp(ctx->val, "timestamp") == 0) {
+      C(rint64(&iv, INT64_MAX));
+      dir_import_timestamp = iv;
+    } else
+      C(rval());
+
+    C(cons());
+    if(*ctx->buf == '}')
+      break;
+    E(*ctx->buf != ',', "Expected ',' or '}'");
+    con(1);
+  }
+  con(1);
+  return 0;
+}
+
 /* Consumes everything up to the root item, and checks that this item is a dir. */
 static int header(void) {
   uint64_t v;
@@ -390,8 +419,8 @@ static int header(void) {
   C(cons() || rint64(&v, 10000) || cons()); /* Ignore the minor version for now */
   E(*ctx->buf != ',', "Expected ','");
   con(1);
-  /* Metadata block is currently ignored */
-  C(cons() || rval() || cons());
+  /* Metadata block is currently ignored: not anymore */
+  C(cons() || metadata() || cons());
   E(*ctx->buf != ',', "Expected ','");
   con(1);
 
@@ -420,8 +449,8 @@ static int itemdir(uint64_t dev) {
 }
 
 
-/* Reads a JSON object representing a struct dir/dir_ext item. Writes to
- * ctx->buf_dir, ctx->buf_ext and ctx->buf_name. */
+/* Reads a JSON object representing a struct dir item. Writes to
+ * ctx->buf_dir, and ctx->buf_name. */
 static int iteminfo(void) {
   uint64_t iv;
 
@@ -451,19 +480,19 @@ static int iteminfo(void) {
     } else if(strcmp(ctx->val, "uid") == 0) {        /* uid */
       C(rint64(&iv, INT32_MAX));
       ctx->buf_dir->flags |= FF_EXT;
-      ctx->buf_ext->uid = iv;
+      ctx->buf_dir->uid = iv;
     } else if(strcmp(ctx->val, "gid") == 0) {        /* gid */
       C(rint64(&iv, INT32_MAX));
       ctx->buf_dir->flags |= FF_EXT;
-      ctx->buf_ext->gid = iv;
+      ctx->buf_dir->gid = iv;
     } else if(strcmp(ctx->val, "mode") == 0) {       /* mode */
       C(rint64(&iv, UINT16_MAX));
       ctx->buf_dir->flags |= FF_EXT;
-      ctx->buf_ext->mode = iv;
+      ctx->buf_dir->mode = iv;
     } else if(strcmp(ctx->val, "mtime") == 0) {      /* mtime */
       C(rint64(&iv, UINT64_MAX));
       ctx->buf_dir->flags |= FF_EXT;
-      ctx->buf_ext->mtime = iv;
+      ctx->buf_dir->mtime = iv;
     } else if(strcmp(ctx->val, "hlnkc") == 0) {      /* hlnkc */
       if(*ctx->buf == 't') {
         C(rlit("true", 4));
@@ -525,7 +554,6 @@ static int item(uint64_t dev) {
   }
 
   memset(ctx->buf_dir, 0, offsetof(struct dir, name));
-  memset(ctx->buf_ext, 0, sizeof(struct dir_ext));
   *ctx->buf_name = 0;
   ctx->buf_dir->flags |= isdir ? FF_DIR : FF_FILE;
   ctx->buf_dir->dev = dev;
@@ -539,16 +567,16 @@ static int item(uint64_t dev) {
     dir_curpath_enter(ctx->buf_name);
 
   if(isdir) {
-    if(dir_output.item(ctx->buf_dir, ctx->buf_name, ctx->buf_ext)) {
+    if(dir_output.item(ctx->buf_dir, ctx->buf_name)) {
       dir_seterr("Output error: %s", strerror(errno));
       return 1;
     }
     C(itemdir(dev));
-    if(dir_output.item(NULL, 0, NULL)) {
+    if(dir_output.item(NULL, 0)) {
       dir_seterr("Output error: %s", strerror(errno));
       return 1;
     }
-  } else if(dir_output.item(ctx->buf_dir, ctx->buf_name, ctx->buf_ext)) {
+  } else if(dir_output.item(ctx->buf_dir, ctx->buf_name)) {
     dir_seterr("Output error: %s", strerror(errno));
     return 1;
   }
@@ -604,7 +632,7 @@ int dir_import_init(const char *fn) {
   ctx->line = 1;
   ctx->byte = ctx->eof = ctx->items = 0;
   ctx->buf = ctx->lastfill = ctx->readbuf;
-  ctx->buf_dir = xmalloc(dir_memsize(""));
+  ctx->buf_dir = xcalloc(1, dir_memsize(""));
   ctx->readbuf[0] = 0;
 
   dir_curpath_set(fn);

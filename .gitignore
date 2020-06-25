@@ -14,6 +14,7 @@ missing
 .deps/
 .dirstamp
 *.o
+*.d
 stamp-h1
 ncdu
 ncdu.1
