@@ -6,7 +6,7 @@ BUILD_DIR ?= build
 SRC_DIRS ?= src
 
 CXX := g++
-CC := gcc
+CC := gcc -std=c99
 
 TARGET := $(TARGET_DIR)/$(TARGET_EXEC)
 SRCS := $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c)
@@ -14,7 +14,7 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 INC_FLAGS := -I. -Ideps
-DEFINES   :=
+DEFINES   := -D_XOPEN_SOURCE=500
 LIBS      := -lcurses
 
 CPPFLAGS ?= -O2 -MMD $(INC_FLAGS) $(DEFINES)
