@@ -43,10 +43,11 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 $(TARGET_EXEC).1: doc/ncdu.pod
 	pod2man --center "ncdu manual" --release "$(TARGET_EXEC)-$(VERSION)" "doc/ncdu.pod" >$(TARGET_EXEC).1
 
-update-deps:
-	wget -q https://raw.github.com/tylov/C99Containers/master/stc/cdefs.h -O "deps/cdefs.h"
-	wget -q https://raw.github.com/tylov/C99Containers/master/stc/cvector.h -O "deps/cvector.h"
-	wget -q https://raw.github.com/attractivechaos/klib/master/khashl.h -O "deps/khashl.h"
+update:
+	wget -q https://raw.github.com/tylov/STC/master/stc/ccommon.h -O "deps/ccommon.h"
+	wget -q https://raw.github.com/tylov/STC/master/stc/cvec.h -O "deps/cvec.h"
+	wget -q https://raw.github.com/tylov/STC/master/stc/cmap.h -O "deps/cmap.h"
+	@#wget -q https://raw.github.com/attractivechaos/klib/master/khashl.h -O "deps/khashl.h"
 	wget -q http://g.blicky.net/ylib.git/plain/yopt.h -O "deps/yopt.h"
 
 .PHONY: clean all

@@ -317,7 +317,7 @@ void uic_set(enum ui_coltype c) {
 struct userdirstats*
 get_userdirstats(struct dir* d, uid_t uid) {
   struct userdirstats* us = d->users.data;
-  int i, n = cvector_size(d->users);
+  int i, n = cvec_usr_size(d->users);
   
   for (i = 0; i < n; ++i, ++us) {
     if (us->uid == uid) return us;
@@ -343,7 +343,7 @@ int add_dirstats(struct dir* d, uid_t uid,
     } else {
       struct userdirstats new_us = {uid, size, items};
       assert(size >= 0 && items > 0);
-      cvector_usr_pushBack(&d->users, new_us);
+      cvec_usr_push_back(&d->users, new_us);
       ret = 2;
     }
   }
@@ -353,7 +353,7 @@ int add_dirstats(struct dir* d, uid_t uid,
 
 void dir_destruct(struct dir *d) {
 #ifndef NOUSERSTATS
-  cvector_usr_destroy(&d->users);
+  cvec_usr_del(&d->users);
 #endif
   free(d);
 }

@@ -27,8 +27,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-
-#include <khashl.h>
+#include "cmap.h"
 
 
 static struct dir *root;   /* root directory struct we're scanning */
@@ -36,10 +35,9 @@ static struct dir *curdir; /* directory item that we're currently adding items t
 static struct dir *orig;   /* original directory, when refreshing an already scanned dir */
 
 /* Table of struct dir items with more than one link (in order to detect hard links) */
-#define hlink_hash(d)     (kh_hash_uint64((khint64_t)d->dev) ^ kh_hash_uint64((khint64_t)d->ino))
-#define hlink_equal(a, b) ((a)->dev == (b)->dev && (a)->ino == (b)->ino)
-KHASHL_SET_INIT(KH_LOCAL, hl_t, hl, struct dir *, hlink_hash, hlink_equal)
-static hl_t *links = NULL;
+#define hlink_equals(a, b) ((a)[0]->dev == (b)[0]->dev && (a)[0]->ino == (b)[0]->ino)
+using_cset(hl, struct dir *, hlink_equals, c_default_hash32);
+static cset_hl links = cset_inits;
 
 
 /* recursively checks a dir structure for hard links and fills the lookup array */
@@ -51,8 +49,7 @@ static void hlink_init(struct dir *d) {
 
   if(!(d->flags & FF_HLNKC))
     return;
-  int r;
-  hl_put(links, d, &r);
+  cset_hl_insert(&links, d);
 }
 
 
@@ -60,14 +57,13 @@ static void hlink_init(struct dir *d) {
  * list, also updates the sizes of the parent dirs */
 static void hlink_check(struct dir *d) {
   struct dir *t, *pt, *par;
-  int i;
 
   /* add to links table */
-  khint_t k = hl_put(links, d, &i);
+  cset_hl_result_t res = cset_hl_insert(&links, d);
 
   /* found in the table? update hlnk */
-  if(!i) {
-    t = kh_key(links, k);
+  if (!res.second) {
+    t = *res.first;
     d->hlnk = t->hlnk == NULL ? t : t->hlnk;
     t->hlnk = d;
   }
@@ -76,6 +72,7 @@ static void hlink_check(struct dir *d) {
    * This works by only counting this file in the parent directories where this
    * file hasn't been counted yet, which can be determined from the hlnk list.
    * XXX: This may not be the most efficient algorithm to do this */
+  int i;
   for(i=1,par=d->parent; i&&par; par=par->parent) {
     if(d->hlnk)
       for(t=d->hlnk; i&&t!=d; t=t->hlnk)
@@ -158,8 +155,8 @@ static int item(struct dir *dir, const char *name) {
 
 
 static int final(int fail) {
-  hl_destroy(links);
-  links = NULL;
+  cset_hl_del(&links);
+  links = cset_hl_init(); // not needed..
 
   if(fail) {
     freedir(root);
@@ -201,7 +198,7 @@ void dir_mem_init(struct dir *_orig) {
   dir_output.items = 0;
 
   /* Init hash table for hard link detection */
-  links = hl_init();
+  links = cset_hl_init();
   if(orig)
     hlink_init(getroot(orig));
 }

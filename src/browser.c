@@ -544,7 +544,7 @@ void write_report(void)
 #ifndef NOUSERSTATS
   fprintf(fp, "Disk usage per user\n");
   fprintf(fp, "-------------------\n");
-  n = cvector_size(t->parent->users);
+  n = cvec_usr_size(t->parent->users);
   qsort(t->parent->users.data, n, sizeof(struct userdirstats), compare_stats);
   struct userdirstats *us = t->parent->users.data;
   for (i = 0; i < n; ++i, ++us) {

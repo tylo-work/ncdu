@@ -27,7 +27,7 @@
 #define _global_h
 
 #include "config.h"
-#include "cvector.h"
+#include "cvec.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
@@ -70,7 +70,7 @@ struct userdirstats {
 };
 
 #ifndef NOUSERSTATS
-declare_CVector(usr, struct userdirstats, c_noDestroy, c_noCompare);
+using_cvec(usr, struct userdirstats, c_no_compare);
 #endif
 
 /* structure representing a file or directory */
@@ -87,7 +87,7 @@ struct dir {
   uid_t uid;
   gid_t gid;
 #ifndef NOUSERSTATS
-  CVector_usr users;
+  cvec_usr users;
 #endif
   char name[];
 };
