@@ -327,11 +327,10 @@ get_userdirstats(struct dir* d, uid_t uid) {
 #endif
 
 int add_dirstats(struct dir* d, uid_t uid,
-                  int64_t size, int64_t asize, int items) {
+                  int64_t size, int items) {
   assert(d->flags & FF_DIR);
   int ret = 0;
   d->size += size;
-  d->asize += asize;
   d->items += items;
 #ifndef NOUSERSTATS
   if (d->flags & FF_EXT) {
@@ -379,7 +378,7 @@ static void freedir_hlnk(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      add_dirstats(par, d->uid, -d->size, -d->asize, 0);
+      add_dirstats(par, d->uid, -d->size, 0);
     }
   }
 
@@ -428,7 +427,7 @@ void freedir(struct dir *dr) {
    *
    * mtime is 0 here because recalculating the maximum at every parent
    * dir is expensive, but might be good feature to add later if desired */
-  addparentstats(dr->parent, dr->uid, dr->flags & FF_HLNKC ? 0 : -dr->size, dr->flags & FF_HLNKC ? 0 : -dr->asize, 0, -(dr->items+1));
+  addparentstats(dr->parent, dr->uid, dr->flags & FF_HLNKC ? 0 : -dr->size, 0, 0, -(dr->items+1));
 
   dir_destruct(dr);
 }
@@ -480,11 +479,12 @@ struct dir *getroot(struct dir *d) {
 }
 
 
-void addparentstats(struct dir *d, uid_t uid, int64_t size, int64_t asize, time_t mtime, int items) {
+void addparentstats(struct dir *d, uid_t uid, int64_t size, time_t atime, time_t mtime, int items) {
   while(d) {
-    add_dirstats(d, uid, size, asize, items);
+    add_dirstats(d, uid, size, items);
     if (d->flags & FF_EXT) {
       d->mtime = (d->mtime > mtime) ? d->mtime : mtime;
+      d->atime = (d->atime > atime) ? d->atime : atime;
     }
     d = d->parent;
   }

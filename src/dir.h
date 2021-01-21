@@ -60,7 +60,7 @@ struct dir_output {
    * scanned directory.
    *
    * The *item struct has the following fields set when item() is called:
-   *   size, asize, ino, dev, flags (only DIR,FILE,ERR,OTHFS,EXL,HLNKC).
+   *   size, ino, dev, flags (only DIR,FILE,ERR,OTHFS,EXL,HLNKC).
    * All other fields/flags should be initialized to NULL or 0.
    * All pointers may be overwritten or freed in subsequent calls, so this
    * function should make a copy if necessary.

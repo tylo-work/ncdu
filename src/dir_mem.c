@@ -80,7 +80,7 @@ static void hlink_check(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      add_dirstats(par, d->uid, d->size, d->asize, 0);
+      add_dirstats(par, d->uid, d->size, 0);
     }
   }
 }
@@ -132,14 +132,14 @@ static int item(struct dir *dir, const char *name) {
   if(item == root && strcmp(item->name, "/") == 0)
     item->name[0] = 0;
 
-  /* Update stats of parents. Don't update the size/asize fields if this is a
+  /* Update stats of parents. Don't update the size fields if this is a
    * possible hard link, because hlnk_check() will take care of it in that
    * case. */
   if(item->flags & FF_HLNKC) {
     addparentstats(item->parent, item->uid, 0, 0, 0, 1);
     hlink_check(item);
   } else {
-    addparentstats(item->parent, item->uid, item->size, item->asize, item->mtime, 1);
+    addparentstats(item->parent, item->uid, item->size, item->atime, item->mtime, 1);
   }
 
   /* propagate ERR and SERR back up to the root */

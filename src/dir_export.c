@@ -79,11 +79,7 @@ static void output_info(struct dir *d, const char *name) {
   output_string(name);
   fputc('"', stream);
 
-  /* No need for asize/dsize if they're 0 (which happens with excluded or failed-to-stat files) */
-  if(d->asize) {
-    fputs(",\"asize\":", stream);
-    output_int((uint64_t)d->asize);
-  }
+  /* No need for dsize if they're 0 (which happens with excluded or failed-to-stat files) */
   if(d->size) {
     fputs(",\"dsize\":", stream);
     output_int((uint64_t)d->size);
@@ -105,6 +101,8 @@ static void output_info(struct dir *d, const char *name) {
     output_int(d->mode);
     fputs(",\"mtime\":", stream);
     output_int(d->mtime);
+    fputs(",\"atime\":", stream);
+    output_int(d->atime);
   }
 
   /* TODO: Including the actual number of links would be nicer. */

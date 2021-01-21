@@ -31,8 +31,7 @@
 /* public variables */
 struct dir *dirlist_parent = NULL,
            *dirlist_par    = NULL;
-int64_t dirlist_maxs       = 0,
-        dirlist_maxa       = 0;
+int64_t dirlist_maxs       = 0;
 
 int    dirlist_sort_desc   = 1,
        dirlist_sort_col    = DL_COL_SIZE,
@@ -60,6 +59,15 @@ static inline int cmp_mtime(struct dir *x, struct dir*y) {
   if (y->flags & FF_EXT)
     y_mtime = y->mtime;
   return (x_mtime > y_mtime ? 1 : (x_mtime == y_mtime ? 0 : -1));
+}
+
+static inline int cmp_atime(struct dir *x, struct dir*y) {
+  int64_t x_atime = 0, y_atime = 0;
+  if (x->flags & FF_EXT)
+    x_atime = x->atime;
+  if (y->flags & FF_EXT)
+    y_atime = y->atime;
+  return (x_atime > y_atime ? 1 : (x_atime == y_atime ? 0 : -1));
 }
 
 
@@ -116,11 +124,16 @@ static int dirlist_cmp(struct dir *x, struct dir *y) {
    */
 
   switch (dirlist_sort_col) {
-    case DL_COL_MTIME:
-        CMP_EVAL(cmp_mtime(x, y), dirlist_sort_desc);
-        CMP_EVAL(CMP_MEMB(size), 0);
-        CMP_EVAL(strcmp(x->name, y->name), 0);
-        break;
+ 	case DL_COL_ATIME:
+    CMP_EVAL(cmp_atime(x, y), dirlist_sort_desc);
+    CMP_EVAL(CMP_MEMB(size), 0);
+    CMP_EVAL(strcmp(x->name, y->name), 0);
+    break;
+  case DL_COL_MTIME:
+    CMP_EVAL(cmp_mtime(x, y), dirlist_sort_desc);
+    CMP_EVAL(CMP_MEMB(size), 0);
+    CMP_EVAL(strcmp(x->name, y->name), 0);
+    break;
  	case DL_COL_NAME:
  		CMP_EVAL(strcmp(x->name, y->name), !dirlist_sort_desc);
  		break;
@@ -129,12 +142,7 @@ static int dirlist_cmp(struct dir *x, struct dir *y) {
  		CMP_EVAL(CMP_MEMB(items), 0);
  		CMP_EVAL(strcmp(x->name, y->name), 0);
  		break;
- 	case DL_COL_ASIZE:
- 		CMP_EVAL(CMP_MEMB(asize), dirlist_sort_desc);
- 		CMP_EVAL(CMP_MEMB(items), 0);
- 		CMP_EVAL(strcmp(x->name, y->name), 0);	
- 		break;
-  	case DL_COL_ITEMS:
+  case DL_COL_ITEMS:
  		CMP_EVAL(CMP_MEMB(items), dirlist_sort_desc);
  		CMP_EVAL(CMP_MEMB(size), 0);
  		CMP_EVAL(strcmp(x->name, y->name), 0);
@@ -220,8 +228,6 @@ static void dirlist_fixup(void) {
     /* update dirlist_(maxs|maxa) */
     if(t->size > dirlist_maxs)
       dirlist_maxs = t->size;
-    if(t->asize > dirlist_maxa)
-      dirlist_maxa = t->asize;
   }
 
   /* no selected items found after one pass? select the first visible item */
@@ -238,7 +244,7 @@ void dirlist_open(struct dir *d) {
   head_real = head = d == NULL ? NULL : d->sub;
 
   /* reset internal status */
-  dirlist_maxs = dirlist_maxa = 0;
+  dirlist_maxs = 0;
 
   /* stop if this is not a directory list we can work with */
   if(d == NULL) {

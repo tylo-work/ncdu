@@ -32,7 +32,7 @@
 static int page, start;
 
 
-#define KEYS 22
+#define KEYS 23
 static const char *keys[KEYS*2] = {
 /*|----key----|  |----------------description----------------|*/
       "Up,Down", "Move cursor up or down",
@@ -40,10 +40,11 @@ static const char *keys[KEYS*2] = {
  "Backspc/Left", "Open parent directory",
             "n", "Sort by name (asc./desc.)",
             "s", "Sort by size on disk (asc./desc.)",
-            "a", "Sort by apparent size (asc./desc.)",
             "c", "Sort by item count (asc./desc.)",
-            "m", "Sort by mod. time",
+            "a", "Sort by access time (asc./desc.)",
+            "m", "Sort by modification time",
             "p", "Print report to file in ~/.ncdu/",
+            "t", "Toggle modification / access time",
             "u", "Toggle sort user first",
             "g", "Toggle sort group first",
             "f", "Toggle folders first",

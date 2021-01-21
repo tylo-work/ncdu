@@ -79,11 +79,11 @@ struct dir {
   ino_t ino;
   dev_t dev;
   int64_t size;
-  int64_t asize;
+  time_t atime;
+  time_t mtime;
   int items;
   unsigned short flags;
   unsigned short mode;
-  time_t mtime;
   uid_t uid;
   gid_t gid;
 #ifndef NOUSERSTATS

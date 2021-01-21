@@ -35,7 +35,7 @@
 #define DL_NOCHANGE   -1
 #define DL_COL_NAME    0
 #define DL_COL_SIZE    1
-#define DL_COL_ASIZE   2
+#define DL_COL_ATIME   2
 #define DL_COL_ITEMS   3
 #define DL_COL_MTIME   4
 
@@ -82,7 +82,7 @@ extern int dirlist_sort_desc, dirlist_sort_col, dirlist_sort_df, dirlist_sort_id
 extern int dirlist_hidden;
 
 /* maximum size of an item in the opened dir */
-extern int64_t dirlist_maxs, dirlist_maxa;
+extern int64_t dirlist_maxs;
 
 
 #endif

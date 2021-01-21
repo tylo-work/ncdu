@@ -467,7 +467,7 @@ static int iteminfo(void) {
       strcpy(ctx->buf_name, ctx->val);
     } else if(strcmp(ctx->val, "asize") == 0) {      /* asize */
       C(rint64(&iv, INT64_MAX));
-      ctx->buf_dir->asize = iv;
+      //ctx->buf_dir->asize = iv;
     } else if(strcmp(ctx->val, "dsize") == 0) {      /* dsize */
       C(rint64(&iv, INT64_MAX));
       ctx->buf_dir->size = iv;
@@ -493,6 +493,10 @@ static int iteminfo(void) {
       C(rint64(&iv, UINT64_MAX));
       ctx->buf_dir->flags |= FF_EXT;
       ctx->buf_dir->mtime = iv;
+    } else if(strcmp(ctx->val, "atime") == 0) {      /* atime */
+      C(rint64(&iv, UINT64_MAX));
+      ctx->buf_dir->flags |= FF_EXT;
+      ctx->buf_dir->atime = iv;
     } else if(strcmp(ctx->val, "hlnkc") == 0) {      /* hlnkc */
       if(*ctx->buf == 't') {
         C(rlit("true", 4));

@@ -127,11 +127,11 @@ static void stat_to_dir(struct stat *fs) {
 
   if(!(buf_dir->flags & (FF_OTHFS|FF_EXL|FF_KERNFS))) {
     buf_dir->size = fs->st_blocks * S_BLKSIZE;
-    buf_dir->asize = fs->st_size;
   }
 
   buf_dir->mode = fs->st_mode;
   buf_dir->mtime = fs->st_mtime;
+  buf_dir->atime = fs->st_atime;
   buf_dir->uid = fs->st_uid;
   buf_dir->gid = fs->st_gid;
 }
@@ -300,7 +300,7 @@ static int dir_scan_item(const char *name) {
   if(cachedir_tags && (buf_dir->flags & FF_DIR) && !(buf_dir->flags & (FF_ERR|FF_EXL|FF_OTHFS|FF_KERNFS|FF_FRMLNK)))
     if(has_cachedir_tag(name)) {
       buf_dir->flags |= FF_EXL;
-      buf_dir->size = buf_dir->asize = 0;
+      buf_dir->size = 0;
     }
 
   /* Recurse into the dir or output the item */
