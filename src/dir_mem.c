@@ -140,8 +140,7 @@ static int item(struct dir *dir, const char *name) {
     addparentstats(item->parent, item->ds.uid, 0, 1, 0, 0);
     hlink_check(item);
   } else {
-    addparentstats(item->parent, item->ds.uid, item->ds.size, 1, item->flags & FF_DIR ? 0 : item->atime,
-                                                                 item->flags & FF_DIR ? 0 : item->mtime);
+    addparentstats(item->parent, item->ds.uid, item->ds.size, 1, item->flags & FF_DIR ? 0 : item->atime, item->mtime);
   }
 
   /* propagate ERR and SERR back up to the root */

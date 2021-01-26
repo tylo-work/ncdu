@@ -1,5 +1,5 @@
-TARGET_EXEC := ncdu
-VERSION     := 1.16
+TARGET_EXEC := ncdu2
+VERSION     := 2.10
 
 TARGET_DIR := .
 BUILD_DIR := build

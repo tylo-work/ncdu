@@ -131,7 +131,7 @@ static void stat_to_dir(struct stat *fs) {
 
   buf_dir->mode = fs->st_mode;
   buf_dir->mtime = fs->st_mtime;
-  buf_dir->atime = fs->st_atime;
+  buf_dir->atime = (buf_dir->flags & FF_DIR) ? buf_dir->mtime : fs->st_atime;
   buf_dir->ds.uid = fs->st_uid;
   buf_dir->gid = fs->st_gid;
 }

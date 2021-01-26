@@ -536,6 +536,9 @@ static int iteminfo(void) {
   }
   con(1);
 
+  if ((ctx->buf_dir->flags & FF_DIR))
+    ctx->buf_dir->atime = ctx->buf_dir->mtime;
+
   E(!*ctx->buf_name, "No name field present in item information object");
   ctx->items++;
   /* Only call input_handle() once for every 32 items. Importing items is so
