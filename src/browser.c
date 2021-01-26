@@ -32,7 +32,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static int graph = 3, show_as = 0, info_show = 0, info_page = 0, info_start = 0, show_items = 1, show_mtime = 1;
+static int graph = 3, show_as = 0, info_show = 0, info_page = 0, info_start = 0, show_items = 1, show_mtime = 1, show_atime = 1;
 static const char *message = NULL;
 
 extern int si;
@@ -249,7 +249,7 @@ static void browse_draw_count(struct dir *n, int *x) {
 
 
 static void get_draw_mtime(struct dir *n, int *x, char* out) {
-  char mbuf[32] = "....-..-.. ..:..", mdbuf[32] =  "----------";
+  char mbuf[48] = "....-..-.. ..:..", mdbuf[32] =  "----------";
   char ubuf[32] = "-no-user", gbuf[32] = "-no-group";
   struct dir *e = NULL;
   time_t t;
@@ -260,19 +260,25 @@ static void get_draw_mtime(struct dir *n, int *x, char* out) {
     e = n->parent;
   }
   if (e) {
-    t = (time_t) show_as ? e->atime : e->mtime;
-    strftime(mbuf, sizeof(mbuf), "%Y-%m-%d %H:%M", localtime(&t));
+    t = (time_t) (show_as && !show_atime) ? e->atime : e->mtime;
+    strftime(mbuf, 18, "%Y-%m-%d %H:%M", localtime(&t));
+    if (show_atime) {
+      t = (time_t) e->atime;
+      strftime(mbuf + 16, 20, "  %Y-%m-%d %H:%M", localtime(&t));
+      *x += 18;
+    }
     strcpy(mdbuf, fmtmode(e->mode));
     get_username(e->ds.uid, ubuf, 9);
     get_groupname(e->gid, gbuf, 9);
   }
-  sprintf(out, "%s%c %s  %-9s %-9s   ", mbuf, (show_as ? '\'' : ' '), mdbuf, ubuf, gbuf);
+  sprintf(out, "%s%c %s  %-9s %-9s   ", mbuf, (show_as || show_atime ? '\'' : ' '), mdbuf, ubuf, gbuf);
   *x += 50;
 }
 
+
 static void browse_draw_mtime(struct dir *n, int *x) {
   enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
-  char buf[64]; // 50 needed
+  char buf[96];
   get_draw_mtime(n, x, buf);
   uic_set(c == UIC_SEL ? UIC_NUM_SEL : UIC_NUM);
   printw(buf);
@@ -758,6 +764,9 @@ int browse_key(int ch) {
       break;
     case '4':
       show_mtime = !show_mtime;
+      break;
+    case '5':
+      show_atime = !show_atime;
       break;
     case ' ':
       info_show = !info_show;
