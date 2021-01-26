@@ -74,7 +74,7 @@ static void browse_draw_info(struct dir *dr) {
 
     if(e) {
       ncaddstr(4, 9, fmtmode(e->mode));
-      ncprint(4, 26, "%d", e->uid);
+      ncprint(4, 26, "%d", e->ds.uid);
       ncprint(4, 38, "%d", e->gid);
       time_t tm = (time_t)e->mtime;
       strftime(mbuf, sizeof(mbuf), "%Y-%m-%d %H:%M:%S %z", localtime(&tm));
@@ -85,9 +85,9 @@ static void browse_draw_info(struct dir *dr) {
     }
 
     ncmove(7, 18);
-    printsize(UIC_DEFAULT, dr->size);
+    printsize(UIC_DEFAULT, dr->ds.size);
     addstrc(UIC_DEFAULT, " (");
-    addstrc(UIC_NUM, fullsize(dr->size));
+    addstrc(UIC_NUM, fullsize(dr->ds.size));
     addstrc(UIC_DEFAULT, " B)");
 
   case 1:
@@ -148,11 +148,11 @@ static void browse_draw_graph(struct dir *n, int *x) {
 
   /* percentage (6 columns) */
   if(graph == 2 || graph == 3) {
-    pc = (float)(n->parent->size);
+    pc = (float)(n->parent->ds.size);
     if(pc < 1)
       pc = 1.0f;
     uic_set(c == UIC_SEL ? UIC_NUM_SEL : UIC_NUM);
-    printw("%5.1f", ((float)(n->size) / pc) * 100.0f);
+    printw("%5.1f", ((float)(n->ds.size) / pc) * 100.0f);
     addchc(c, '%');
   }
 
@@ -162,7 +162,7 @@ static void browse_draw_graph(struct dir *n, int *x) {
   /* graph (10+ columns) */
   if(graph == 1 || graph == 3) {
     uic_set(c == UIC_SEL ? UIC_GRAPH_SEL : UIC_GRAPH);
-    o = (int)((float)bar_size*(float)(n->size) / (float)(dirlist_maxs));
+    o = (int)((float)bar_size*(float)(n->ds.size) / (float)(dirlist_maxs));
     for(i=0; i<bar_size; i++)
       addch(i < o ? '#' : ' ');
   }
@@ -192,10 +192,10 @@ static void get_draw_graph(struct dir *n, int* x, char *out) {
 
   /* percentage (6 columns) */
   if(graph == 2 || graph == 3) {
-    pc = (float)(n->parent->size);
+    pc = (float)(n->parent->ds.size);
     if(pc < 1)
       pc = 1.0f;
-    sprintf(buf, "%5.1f%%", ((float)(n->size) / pc) * 100.0f);
+    sprintf(buf, "%5.1f%%", ((float)(n->ds.size) / pc) * 100.0f);
     strncpy(out, buf, 6);
     out += 6;
   }
@@ -205,7 +205,7 @@ static void get_draw_graph(struct dir *n, int* x, char *out) {
 
   /* graph (10 columns) */
   if(graph == 1 || graph == 3) {
-    o = (int)(10.0f*(float)(n->size) / (float)(dirlist_maxs));
+    o = (int)(10.0f*(float)(n->ds.size) / (float)(dirlist_maxs));
     for(i=0; i<10; i++)
       *out++ = (i < o ? '#' : ' ');
   }
@@ -220,16 +220,16 @@ static void get_draw_count(struct dir *n, int *x, char* out) {
   }
 
   *x += 8;
-  if (n->items == 0) {
+  if (n->ds.items == 0) {
     sprintf(out, "          ");
-  } else if (n->items < 1000*1000) {
-    sprintf(out, "%6d  ", n->items);
-  } else if (n->items < 100*1000*1000) {
-    sprintf(out, "%5.2fM  ", n->items / 1e6);
-  } else if (n->items < 1000*1000*1000) {
-    sprintf(out, "%5.1fM  ", n->items / 1e6);
+  } else if (n->ds.items < 1000*1000) {
+    sprintf(out, "%6d  ", n->ds.items);
+  } else if (n->ds.items < 100*1000*1000) {
+    sprintf(out, "%5.2fM  ", n->ds.items / 1e6);
+  } else if (n->ds.items < 1000*1000*1000) {
+    sprintf(out, "%5.1fM  ", n->ds.items / 1e6);
   } else {
-    sprintf(out, "%5.2fB  ", n->items / 1e9);
+    sprintf(out, "%5.2fB  ", n->ds.items / 1e9);
   }
 }
 
@@ -263,7 +263,7 @@ static void get_draw_mtime(struct dir *n, int *x, char* out) {
     t = (time_t) show_as ? e->atime : e->mtime;
     strftime(mbuf, sizeof(mbuf), "%Y-%m-%d %H:%M", localtime(&t));
     strcpy(mdbuf, fmtmode(e->mode));
-    get_username(e->uid, ubuf, 9);
+    get_username(e->ds.uid, ubuf, 9);
     get_groupname(e->gid, gbuf, 9);
   }
   sprintf(out, "%s%c %s  %-9s %-9s   ", mbuf, (show_as ? '\'' : ' '), mdbuf, ubuf, gbuf);
@@ -291,7 +291,7 @@ static void browse_draw_item(struct dir *n, int row) {
   move(row, x);
 
   if(n != dirlist_parent) {
-    printsize(c, n->size);
+    printsize(c, n->ds.size);
     //if (show_as) printw("'");
   }
   x += 10;
@@ -326,7 +326,7 @@ static void get_draw_item(struct dir *n, char *line) {
   // size
   if(n != dirlist_parent) {
     const char* unit;
-    float value = formatsize(n->size, &unit);
+    float value = formatsize(n->ds.size, &unit);
     sprintf(&line[x], "%5.1f %s   ", value, unit);
   } else {
     sprintf(&line[x], "              ");
@@ -401,10 +401,10 @@ void browse_draw() {
   mvhline(winrows-1, 0, ' ', wincols);
   if(t) {
     mvaddstr(winrows-1, 1, "Disk usage:");
-    printsize(UIC_HD, t->parent->size);
+    printsize(UIC_HD, t->parent->ds.size);
     addstrc(UIC_HD, "  Items:");
     uic_set(UIC_NUM_HD);
-    printw(" %d", t->parent->items);
+    printw(" %d", t->parent->ds.items);
     addstrc(UIC_HD, "  Sort flags: ");
     uic_set(UIC_NUM_HD);
     get_sortflags(buf);
@@ -412,7 +412,7 @@ void browse_draw() {
 #ifndef NOUSERSTATS
     get_username(getuid(), buf, 12);
     printw("  User %s:", buf);
-    struct userdirstats *us = get_userdirstats(t->parent, getuid());
+    struct userdirstats *us = get_userdirstats_by_uid(t->parent, getuid());
     if (us) {
       addstrc(UIC_HD, "  Disk usage:");
       uic_set(UIC_NUM_HD);
@@ -459,12 +459,10 @@ void browse_draw() {
   move(selected+2, 0);
 }
 
-int compare_stats(const void *a, const void *b)
+int compare_stats(const struct userdirstats *a, const struct userdirstats *b)
 {
-  struct userdirstats *stats_a = (struct userdirstats *) a,
-                      *stats_b = (struct userdirstats *) b;
   // Dont take diff, because they are unsigned 64 bits.
-  return stats_b->size < stats_a->size ? -1 : stats_b->size > stats_a->size ? 1 : 0;
+  return (a->size > b->size) - (a->size < b->size);
   // Items:
   //return stats_a->items - stats_b->items;
   // Username:
@@ -529,17 +527,17 @@ void write_report(void)
   fprintf(fp, "-----------------------\n");
   fprintf(fp, "       Directory : %s\n", getpath(t->parent));
   fprintf(fp, "            Date : %s%s\n", timebuf, (dir_import_active ? " [imported]" : ""));
-  value = formatsize(t->parent->size, &unit);
+  value = formatsize(t->parent->ds.size, &unit);
   fprintf(fp, "      Disk usage : %6.2f %s\n", value, unit);
-  fprintf(fp, "     Items count : %d\n", t->parent->items);
+  fprintf(fp, "     Items count : %d\n", t->parent->ds.items);
   fprintf(fp, "      Sort flags : %s\n\n", sflagsbuf);
 #ifndef NOUSERSTATS
   fprintf(fp, "Disk usage per user\n");
   fprintf(fp, "-------------------\n");
-  n = cvec_usr_size(t->parent->users);
-  qsort(t->parent->users.data, n, sizeof(struct userdirstats), compare_stats);
-  struct userdirstats *us = t->parent->users.data;
-  for (i = 0; i < n; ++i, ++us) {
+  n = (int) cvec_usr_size(t->parent->users);
+  cvec_usr_sort_with(&t->parent->users, 0, n, compare_stats);
+  for (i = 0; i < (int) get_userdirstats_size(t->parent); ++i) {
+    struct userdirstats *us = get_userdirstats_at(t->parent, i);
     get_username(us->uid, output, 15);
     value = formatsize(us->size, &unit);
     fprintf(fp, "  %-15s: disk: %6.2f %s  items: %d\n", output, value, unit, us->items);

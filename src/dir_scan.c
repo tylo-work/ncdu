@@ -126,13 +126,13 @@ static void stat_to_dir(struct stat *fs) {
     buf_dir->flags |= FF_OTHFS;
 
   if(!(buf_dir->flags & (FF_OTHFS|FF_EXL|FF_KERNFS))) {
-    buf_dir->size = fs->st_blocks * S_BLKSIZE;
+    buf_dir->ds.size = fs->st_blocks * S_BLKSIZE;
   }
 
   buf_dir->mode = fs->st_mode;
   buf_dir->mtime = fs->st_mtime;
   buf_dir->atime = fs->st_atime;
-  buf_dir->uid = fs->st_uid;
+  buf_dir->ds.uid = fs->st_uid;
   buf_dir->gid = fs->st_gid;
 }
 
@@ -300,7 +300,7 @@ static int dir_scan_item(const char *name) {
   if(cachedir_tags && (buf_dir->flags & FF_DIR) && !(buf_dir->flags & (FF_ERR|FF_EXL|FF_OTHFS|FF_KERNFS|FF_FRMLNK)))
     if(has_cachedir_tag(name)) {
       buf_dir->flags |= FF_EXL;
-      buf_dir->size = 0;
+      buf_dir->ds.size = 0;
     }
 
   /* Recurse into the dir or output the item */
@@ -331,6 +331,7 @@ static int dir_walk(char *dir) {
   for(cur=dir; !fail&&cur&&*cur; cur+=strlen(cur)+1) {
     dir_curpath_enter(cur);
     memset(buf_dir, 0, offsetof(struct dir, name));
+    buf_dir->users = cvec_usr_init();
     fail = dir_scan_item(cur);
     dir_curpath_leave();
   }
@@ -347,6 +348,7 @@ static int process(void) {
   struct stat fs;
 
   memset(buf_dir, 0, offsetof(struct dir, name));
+  buf_dir->users = cvec_usr_init();
 
   if((path = path_real(dir_curpath)) == NULL)
     dir_seterr("Error obtaining full path: %s", strerror(errno));
@@ -396,7 +398,9 @@ void dir_scan_init(const char *path) {
   dir_setlasterr(NULL);
   dir_seterr(NULL);
   dir_process = process;
-  if (!buf_dir)
+  if (!buf_dir) {
     buf_dir = xcalloc(1, dir_memsize(""));
+    buf_dir->users = cvec_usr_init();
+  }
   pstate = ST_CALC;
 }

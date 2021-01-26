@@ -470,7 +470,7 @@ static int iteminfo(void) {
       //ctx->buf_dir->asize = iv;
     } else if(strcmp(ctx->val, "dsize") == 0) {      /* dsize */
       C(rint64(&iv, INT64_MAX));
-      ctx->buf_dir->size = iv;
+      ctx->buf_dir->ds.size = iv;
     } else if(strcmp(ctx->val, "dev") == 0) {        /* dev */
       C(rint64(&iv, UINT64_MAX));
       ctx->buf_dir->dev = iv;
@@ -480,7 +480,7 @@ static int iteminfo(void) {
     } else if(strcmp(ctx->val, "uid") == 0) {        /* uid */
       C(rint64(&iv, INT32_MAX));
       ctx->buf_dir->flags |= FF_EXT;
-      ctx->buf_dir->uid = iv;
+      ctx->buf_dir->ds.uid = iv;
     } else if(strcmp(ctx->val, "gid") == 0) {        /* gid */
       C(rint64(&iv, INT32_MAX));
       ctx->buf_dir->flags |= FF_EXT;
@@ -558,6 +558,7 @@ static int item(uint64_t dev) {
   }
 
   memset(ctx->buf_dir, 0, offsetof(struct dir, name));
+  ctx->buf_dir->users = cvec_usr_init();
   *ctx->buf_name = 0;
   ctx->buf_dir->flags |= isdir ? FF_DIR : FF_FILE;
   ctx->buf_dir->dev = dev;
@@ -637,6 +638,7 @@ int dir_import_init(const char *fn) {
   ctx->byte = ctx->eof = ctx->items = 0;
   ctx->buf = ctx->lastfill = ctx->readbuf;
   ctx->buf_dir = xcalloc(1, dir_memsize(""));
+  ctx->buf_dir->users = cvec_usr_init();
   ctx->readbuf[0] = 0;
 
   dir_curpath_set(fn);

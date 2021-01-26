@@ -58,7 +58,7 @@ static inline int cmp_mtime(struct dir *x, struct dir*y) {
     x_mtime = x->mtime;
   if (y->flags & FF_EXT)
     y_mtime = y->mtime;
-  return (x_mtime > y_mtime ? 1 : (x_mtime == y_mtime ? 0 : -1));
+  return (x_mtime > y_mtime) - (x_mtime < y_mtime);
 }
 
 static inline int cmp_atime(struct dir *x, struct dir*y) {
@@ -67,14 +67,14 @@ static inline int cmp_atime(struct dir *x, struct dir*y) {
     x_atime = x->atime;
   if (y->flags & FF_EXT)
     y_atime = y->atime;
-  return (x_atime > y_atime ? 1 : (x_atime == y_atime ? 0 : -1));
+  return (x_atime > y_atime) - (x_atime < y_atime);
 }
 
 
 static inline int cmp_user(struct dir *x, struct dir *y) {
   char x_id[64] = {0}, y_id[64] = {0};
-  int xi = x->flags & FF_EXT ? x->uid : 0;
-  int yi = y->flags & FF_EXT ? y->uid : 0;
+  int xi = x->flags & FF_EXT ? x->ds.uid : 0;
+  int yi = y->flags & FF_EXT ? y->ds.uid : 0;
   if (xi == yi) return 0;
   get_username(xi, x_id, 63);
   get_username(yi, y_id, 63);
@@ -126,25 +126,25 @@ static int dirlist_cmp(struct dir *x, struct dir *y) {
   switch (dirlist_sort_col) {
  	case DL_COL_ATIME:
     CMP_EVAL(cmp_atime(x, y), dirlist_sort_desc);
-    CMP_EVAL(CMP_MEMB(size), 0);
+    CMP_EVAL(CMP_MEMB(ds.size), 0);
     CMP_EVAL(strcmp(x->name, y->name), 0);
     break;
   case DL_COL_MTIME:
     CMP_EVAL(cmp_mtime(x, y), dirlist_sort_desc);
-    CMP_EVAL(CMP_MEMB(size), 0);
+    CMP_EVAL(CMP_MEMB(ds.size), 0);
     CMP_EVAL(strcmp(x->name, y->name), 0);
     break;
  	case DL_COL_NAME:
  		CMP_EVAL(strcmp(x->name, y->name), !dirlist_sort_desc);
  		break;
  	case DL_COL_SIZE:
- 		CMP_EVAL(CMP_MEMB(size), dirlist_sort_desc);
- 		CMP_EVAL(CMP_MEMB(items), 0);
+ 		CMP_EVAL(CMP_MEMB(ds.size), dirlist_sort_desc);
+ 		CMP_EVAL(CMP_MEMB(ds.items), 0);
  		CMP_EVAL(strcmp(x->name, y->name), 0);
  		break;
   case DL_COL_ITEMS:
- 		CMP_EVAL(CMP_MEMB(items), dirlist_sort_desc);
- 		CMP_EVAL(CMP_MEMB(size), 0);
+ 		CMP_EVAL(CMP_MEMB(ds.items), dirlist_sort_desc);
+ 		CMP_EVAL(CMP_MEMB(ds.size), 0);
  		CMP_EVAL(strcmp(x->name, y->name), 0);
  		break;
   }
@@ -226,8 +226,8 @@ static void dirlist_fixup(void) {
     }
 
     /* update dirlist_(maxs|maxa) */
-    if(t->size > dirlist_maxs)
-      dirlist_maxs = t->size;
+    if(t->ds.size > dirlist_maxs)
+      dirlist_maxs = t->ds.size;
   }
 
   /* no selected items found after one pass? select the first visible item */
@@ -258,8 +258,10 @@ void dirlist_open(struct dir *d) {
 
   /* set the reference to the parent dir */
   if(d->parent) {
-    if(!parent_alloc)
+    if(!parent_alloc) {
       parent_alloc = xcalloc(1, dir_memsize(".."));
+      parent_alloc->users = cvec_usr_init();
+    }
     dirlist_parent = parent_alloc;
     strcpy(dirlist_parent->name, "..");
     dirlist_parent->next = head;

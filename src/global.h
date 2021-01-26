@@ -64,8 +64,8 @@
 #define ST_QUIT   5
 
 struct userdirstats {
-    uid_t uid;
     int64_t size;
+    uid_t uid;
     int items;
 };
 
@@ -78,19 +78,18 @@ struct dir {
   struct dir *parent, *next, *prev, *sub, *hlnk;
   ino_t ino;
   dev_t dev;
-  int64_t size;
   time_t atime;
   time_t mtime;
-  int items;
+  gid_t gid;
   unsigned short flags;
   unsigned short mode;
-  uid_t uid;
-  gid_t gid;
+  struct userdirstats ds;
 #ifndef NOUSERSTATS
   cvec_usr users;
 #endif
   char name[];
 };
+
 
 /* A note on the ino and dev fields above: ino is usually represented as ino_t,
  * which POSIX specifies to be an unsigned integer.  dev is usually represented

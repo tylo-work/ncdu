@@ -80,9 +80,9 @@ static void output_info(struct dir *d, const char *name) {
   fputc('"', stream);
 
   /* No need for dsize if they're 0 (which happens with excluded or failed-to-stat files) */
-  if(d->size) {
+  if(d->ds.size) {
     fputs(",\"dsize\":", stream);
-    output_int((uint64_t)d->size);
+    output_int((uint64_t)d->ds.size);
   }
 
   if(d->dev != nstack_top(&stack, 0)) {
@@ -94,7 +94,7 @@ static void output_info(struct dir *d, const char *name) {
 
   if(d->flags & FF_EXT) {
     fputs(",\"uid\":", stream);
-    output_int(d->uid);
+    output_int(d->ds.uid);
     fputs(",\"gid\":", stream);
     output_int(d->gid);
     fputs(",\"mode\":", stream);

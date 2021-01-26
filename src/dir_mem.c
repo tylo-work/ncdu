@@ -80,7 +80,7 @@ static void hlink_check(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      add_dirstats(par, d->uid, d->size, 0);
+      add_dirstats(par, d->ds.uid, d->ds.size, 0);
     }
   }
 }
@@ -118,6 +118,7 @@ static int item(struct dir *dir, const char *name) {
     name = orig->name;
 
   item = xcalloc(1, dir_memsize(name));
+  item->users = cvec_usr_init();
   memcpy(item, dir, offsetof(struct dir, name));
   strcpy(item->name, name);
 
@@ -136,10 +137,11 @@ static int item(struct dir *dir, const char *name) {
    * possible hard link, because hlnk_check() will take care of it in that
    * case. */
   if(item->flags & FF_HLNKC) {
-    addparentstats(item->parent, item->uid, 0, 0, 0, 1);
+    addparentstats(item->parent, item->ds.uid, 0, 1, 0, 0);
     hlink_check(item);
   } else {
-    addparentstats(item->parent, item->uid, item->size, item->atime, item->mtime, 1);
+    addparentstats(item->parent, item->ds.uid, item->ds.size, 1, item->flags & FF_DIR ? 0 : item->atime,
+                                                                 item->flags & FF_DIR ? 0 : item->mtime);
   }
 
   /* propagate ERR and SERR back up to the root */
@@ -147,8 +149,8 @@ static int item(struct dir *dir, const char *name) {
     for(t=item->parent; t; t=t->parent)
       t->flags |= FF_SERR;
 
-  dir_output.size = root->size;
-  dir_output.items = root->items;
+  dir_output.size = root->ds.size;
+  dir_output.items = root->ds.items;
 
   return 0;
 }

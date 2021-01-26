@@ -314,39 +314,57 @@ void uic_set(enum ui_coltype c) {
 }
 
 #ifndef NOUSERSTATS
+size_t
+get_userdirstats_size(struct dir* d) {
+  return cvec_usr_empty(d->users) ? 1 : cvec_usr_size(d->users);
+}
+
 struct userdirstats*
-get_userdirstats(struct dir* d, uid_t uid) {
-  struct userdirstats* us = d->users.data;
-  int i, n = cvec_usr_size(d->users);
-  
-  for (i = 0; i < n; ++i, ++us) {
-    if (us->uid == uid) return us;
+get_userdirstats_at(struct dir* d, size_t idx) {
+  return cvec_usr_empty(d->users) ? &d->ds : &d->users.data[idx];
+}
+
+struct userdirstats*
+get_userdirstats_by_uid(struct dir* d, uid_t uid) {
+  struct userdirstats* ds;
+  int i, n = get_userdirstats_size(d);
+  for (i = 0; i < n; ++i) {
+    ds = get_userdirstats_at(d, i);
+    if (uid == ds->uid) return ds;
   }
   return NULL;
 }
 #endif
 
 int add_dirstats(struct dir* d, uid_t uid,
-                  int64_t size, int items) {
+                 int64_t size, int items) {
   assert(d->flags & FF_DIR);
   int ret = 0;
-  d->size += size;
-  d->items += items;
 #ifndef NOUSERSTATS
   if (d->flags & FF_EXT) {
-    struct userdirstats *us = get_userdirstats(d, uid);
-    if (us) {
-      us->size += size;
-      us->items += items;
-      ret = 1;
-    } else {
-      struct userdirstats new_us = {uid, size, items};
-      assert(size >= 0 && items > 0);
-      cvec_usr_push_back(&d->users, new_us);
+    struct userdirstats *ds;
+    if (! cvec_usr_empty(d->users)) {
+      ds = get_userdirstats_by_uid(d, uid);
+      if (ds) {
+        ds->size += size;
+        ds->items += items;
+        ret = 1;
+      } else {
+        struct userdirstats new_ds = {size, uid, items};
+        cvec_usr_push_back(&d->users, new_ds);
+        ret = 2;
+      }
+    } else if (uid != d->ds.uid) {
+      struct userdirstats new_ds = {size, uid, items};
+      cvec_usr_push_back(&d->users, d->ds);
+      cvec_usr_push_back(&d->users, new_ds);
       ret = 2;
-    }
+    } 
+    // else do nothing.
   }
 #endif
+  d->ds.size += size;
+  d->ds.items += items;
   return ret;
 }
 
@@ -378,7 +396,7 @@ static void freedir_hlnk(struct dir *d) {
           if(pt==par)
             i=0;
     if(i) {
-      add_dirstats(par, d->uid, -d->size, 0);
+      add_dirstats(par, d->ds.uid, -d->ds.size, 0);
     }
   }
 
@@ -427,7 +445,7 @@ void freedir(struct dir *dr) {
    *
    * mtime is 0 here because recalculating the maximum at every parent
    * dir is expensive, but might be good feature to add later if desired */
-  addparentstats(dr->parent, dr->uid, dr->flags & FF_HLNKC ? 0 : -dr->size, 0, 0, -(dr->items+1));
+  addparentstats(dr->parent, dr->ds.uid, dr->flags & FF_HLNKC ? 0 : -dr->ds.size, -(dr->ds.items+1), 0, 0);
 
   dir_destruct(dr);
 }
@@ -479,12 +497,12 @@ struct dir *getroot(struct dir *d) {
 }
 
 
-void addparentstats(struct dir *d, uid_t uid, int64_t size, time_t atime, time_t mtime, int items) {
+void addparentstats(struct dir *d, uid_t uid, int64_t size, int items, time_t atime, time_t mtime) {
   while(d) {
     add_dirstats(d, uid, size, items);
     if (d->flags & FF_EXT) {
-      d->mtime = (d->mtime > mtime) ? d->mtime : mtime;
-      d->atime = (d->atime > atime) ? d->atime : atime;
+      if (mtime > d->mtime) d->mtime = mtime;
+      if (atime > d->atime) d->atime = atime;
     }
     d = d->parent;
   }

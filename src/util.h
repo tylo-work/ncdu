@@ -117,7 +117,9 @@ void nctab(int, int, int, const char *);
 #define  ncaddchc(t, r, c, s) do { uic_set(t);  ncaddch(r, c, s); } while(0)
 #define  mvhlinec(t, r, c, s, n) do { uic_set(t);  mvhline(r, c, s, n); } while(0)
 
-struct userdirstats* get_userdirstats(struct dir*, uid_t);
+size_t get_userdirstats_size(struct dir* d);
+struct userdirstats* get_userdirstats_at(struct dir* d, size_t idx);
+struct userdirstats* get_userdirstats_by_uid(struct dir*, uid_t);
 int add_dirstats(struct dir*, uid_t, int64_t, int);
 
 void get_username(uid_t, char[], int);
@@ -162,7 +164,7 @@ struct dir *getroot(struct dir *);
     : (a)+(b) < 0 ? 0 : (a)+(b))
 
 /* Adds a value to the size, atime, mtime and items fields of *d and its parents */
-void addparentstats(struct dir *d, uid_t uid, int64_t size, time_t atime, time_t mtime, int items);
+void addparentstats(struct dir *d, uid_t uid, int64_t size, int items, time_t atime, time_t mtime);
 
 /* A simple stack implemented in macros */
 #define nstack_init(_s) do {\

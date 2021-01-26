@@ -1,25 +1,24 @@
 TARGET_EXEC := ncdu
 VERSION     := 1.16
 
-TARGET_DIR ?= .
-BUILD_DIR ?= build
-SRC_DIRS ?= src
+TARGET_DIR := .
+BUILD_DIR := build
+SRC_DIRS := src
 
 CXX := g++
 CC := gcc -std=c99
 
 TARGET := $(TARGET_DIR)/$(TARGET_EXEC)
-SRCS := $(shell find $(SRC_DIRS) -name *.cpp -or -name *.c)
+SRCS := $(shell find $(SRC_DIRS) -name "*.cpp" -or -name "*.c")
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
-INC_FLAGS := -I. -Ideps
+INC_FLAGS := -I. -Iext
 DEFINES   := -D_XOPEN_SOURCE=500
 LIBS      := -lcurses
 
 CPPFLAGS ?= -O2 -MMD $(INC_FLAGS) $(DEFINES)
 LDFLAGS += $(LIBS)
-
 
 
 all: $(TARGET) $(TARGET_EXEC).1
@@ -44,11 +43,11 @@ $(TARGET_EXEC).1: doc/ncdu.pod
 	pod2man --center "ncdu manual" --release "$(TARGET_EXEC)-$(VERSION)" "doc/ncdu.pod" >$(TARGET_EXEC).1
 
 update:
-	wget -q https://raw.github.com/tylov/STC/master/stc/ccommon.h -O "deps/ccommon.h"
-	wget -q https://raw.github.com/tylov/STC/master/stc/cvec.h -O "deps/cvec.h"
-	wget -q https://raw.github.com/tylov/STC/master/stc/cmap.h -O "deps/cmap.h"
-	@#wget -q https://raw.github.com/attractivechaos/klib/master/khashl.h -O "deps/khashl.h"
-	wget -q http://g.blicky.net/ylib.git/plain/yopt.h -O "deps/yopt.h"
+	@#wget -q https://raw.github.com/tylov/STC/master/stc/ccommon.h -O "ext/ccommon.h"
+	@#wget -q https://raw.github.com/tylov/STC/master/stc/cvec.h -O "ext/cvec.h"
+	@#wget -q https://raw.github.com/tylov/STC/master/stc/cmap.h -O "ext/cmap.h"
+	@#wget -q https://raw.github.com/attractivechaos/klib/master/khashl.h -O "ext/khashl.h"
+	wget -q http://g.blicky.net/ylib.git/plain/yopt.h -O "ext/yopt.h"
 
 .PHONY: clean all
 
