@@ -503,6 +503,7 @@ void addparentstats(struct dir *d, uid_t uid, int64_t size, int items, time_t at
     if (d->flags & FF_EXT) {
       if (mtime > d->mtime) d->mtime = mtime;
       if (atime > d->atime) d->atime = atime;
+      if (d->mtime > d->atime) d->atime = d->mtime;
     }
     d = d->parent;
   }
