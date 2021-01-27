@@ -134,7 +134,7 @@ static void browse_draw_flag(struct dir *n, int *x) {
 
 static void browse_draw_graph(struct dir *n, int *x) {
   float pc = 0.0f;
-  int o, i, bar_size = wincols/7 > 10 ? wincols/7 : 10;
+  int o, i, bar_size = 10;
   enum ui_coltype c = n->flags & FF_BSEL ? UIC_SEL : UIC_DEFAULT;
 
   if(!graph)
