@@ -36,6 +36,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <assert.h>
+#include <sys/stat.h>
 
 int uic_theme;
 int winrows, wincols;
